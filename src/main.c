@@ -188,13 +188,12 @@ static void canvas_draw(Layer *layer, GContext *ctx) {
   }
 
   // ── Time HH / MM ───────────────────────────────────────
-  // TIP_Y = PYR_OY+PYR_H = 4+103 = 107, BOT_H = 168-107 = 61
-  // TIME_LH = 29px (sz=40), two lines = 58px → fits in 61px
-  // STAT_LH = 13px (sz=14), three lines = 39px → fits in 61px
-  // Both are side-by-side so height = max(58,39) = 58px < 61px ✓
-  #define TIME_LH 29
-  #define STAT_LH 13
-  #define TIME_W  43   // width of "00" at sz=40
+  // TIP_Y=107  BOT_H=61px
+  // sz=28: actual line_h=27px, 2 lines=54px fits ✓
+  // sz=11 stats: lh=8px, 3 lines=24px fits ✓ side-by-side
+  #define TIME_LH 27
+  #define STAT_LH  9
+  #define TIME_W  36   // measured width of "00" at sz=28
 
   int bottom_y = PYR_OY + PYR_H;   // 107 — pin directly, no gap
   char hh[3],mm[3];
@@ -202,8 +201,8 @@ static void canvas_draw(Layer *layer, GContext *ctx) {
   snprintf(mm,3,"%02d",s_minute);
 
   graphics_context_set_text_color(ctx,col_text());
-  graphics_draw_text(ctx,hh,time_fnt,GRect(4,bottom_y,          TIME_W+4,TIME_LH+2),GTextOverflowModeWordWrap,GTextAlignmentLeft,NULL);
-  graphics_draw_text(ctx,mm,time_fnt,GRect(4,bottom_y+TIME_LH,  TIME_W+4,TIME_LH+2),GTextOverflowModeWordWrap,GTextAlignmentLeft,NULL);
+  graphics_draw_text(ctx,hh,time_fnt,GRect(4,bottom_y,          TIME_W+4,TIME_LH+4),GTextOverflowModeWordWrap,GTextAlignmentLeft,NULL);
+  graphics_draw_text(ctx,mm,time_fnt,GRect(4,bottom_y+TIME_LH,  TIME_W+4,TIME_LH+4),GTextOverflowModeWordWrap,GTextAlignmentLeft,NULL);
 
   int stats_x = 4+TIME_W+6;
   int stats_w = 144-stats_x-2;
@@ -302,8 +301,8 @@ static void window_load(Window *window) {
   layer_set_update_proc(s_canvas,canvas_draw);
   layer_add_child(root,s_canvas);
 
-  s_time_font=fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_SG_MEDIUM_40));
-  s_stat_font=fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_SG_REGULAR_14));
+  s_time_font=fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_SG_MEDIUM_28));
+  s_stat_font=fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_SG_REGULAR_11));
 
   build_date_strings();
   time_t now=time(NULL); struct tm *t=localtime(&now);

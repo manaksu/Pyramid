@@ -19,13 +19,13 @@
     "media": [
       {
         "type": "font",
-        "name": "FONT_SG_MEDIUM_40",
+        "name": "FONT_SG_MEDIUM_28",
         "file": "fonts/SpaceGrotesk-Medium.ttf",
         "characterRegex": "[0-9]"
       },
       {
         "type": "font",
-        "name": "FONT_SG_REGULAR_14",
+        "name": "FONT_SG_REGULAR_11",
         "file": "fonts/SpaceGrotesk-Regular.ttf",
         "characterRegex": "[0-9A-Za-z :./]"
       }
