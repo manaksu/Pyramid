@@ -8,9 +8,11 @@
 #define KEY_STAT_2       3
 #define KEY_STAT_3       4
 #define KEY_STAT_4       5
-#define KEY_DATE_STYLE   6  // 0=uniform small  1=scaled (larger toward bottom)
+#define KEY_DATE_STYLE   6  // 0=uniform  1=scaled
+#define KEY_LAYOUT_MODE  7  // 0=standard 1=wrap
+#define KEY_PYR_POS      8  // 0=left 1=center 2=right
 
-// ── Pyramid geometry ──────────────────────────────────────
+// ── Pyramid geometry (standard mode) ─────────────────────
 #define S        26
 #define TRI_H    22
 #define HGAP      6
@@ -20,7 +22,16 @@
 #define PYR_OX  ((144 - PYR_W) / 2)
 #define PYR_OY   4
 
-// ── Char band ─────────────────────────────────────────────
+// ── Pyramid geometry (wrap mode) ──────────────────────────
+#define SW       14   // smaller side
+#define TRI_HW   12   // floor(14 * sqrt(3)/2)
+#define HGAPW     3
+#define VGAPW     3
+#define PYR_WW  (4*SW + 3*HGAPW)   // 65
+#define PYR_HW  (4*TRI_HW + 3*VGAPW)  // 57
+#define PYR_TOP  25   // y origin of wrap pyramid
+
+// ── Char band (standard mode) ─────────────────────────────
 #define CHAR_W   7
 #define CHAR_H   9
 
@@ -30,10 +41,12 @@ static Layer  *s_canvas;
 static GFont   s_time_font;
 static GFont   s_stat_font;
 
-static int s_bg_choice  = 0;
-static int s_stat_style = 0;
-static int s_date_style = 0;  // 0=uniform  1=scaled
-static int s_stats[4]   = {0,1,2,3};
+static int s_bg_choice   = 0;
+static int s_stat_style  = 0;
+static int s_date_style  = 0;  // 0=uniform  1=scaled
+static int s_layout_mode = 0;  // 0=standard 1=wrap
+static int s_pyr_pos     = 1;  // 0=left 1=center 2=right
+static int s_stats[4]    = {0,1,2,3};
 static int s_batt_pct   = 100;
 static int s_hour       = 0;
 static int s_minute     = 0;
@@ -76,7 +89,7 @@ static const char NOISE[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXY
 #define NOISE_LEN 62
 static char noise_char() { return NOISE[prng_range(NOISE_LEN)]; }
 
-// ── Pyramid x range at pixel y ────────────────────────────
+// ── Pyramid x range at pixel y (standard) ────────────────
 static void pyr_x_at_y(int py, int *lx, int *rx) {
   int y2 = PYR_OY;
   int rc[4]={4,3,2,1};
@@ -89,6 +102,28 @@ static void pyr_x_at_y(int py, int *lx, int *rx) {
     y2+=TRI_H+VGAP;
   }
   *lx=PYR_OX; *rx=PYR_OX+PYR_W;
+}
+
+// ── Wrap mode: pyramid x range at pixel y ────────────────
+static int wrap_ox() {
+  if (s_pyr_pos==0) return 0;
+  if (s_pyr_pos==2) return 144-PYR_WW;
+  return (144-PYR_WW)/2;
+}
+
+static void pyr_x_at_y_wrap(int py, int *lx, int *rx) {
+  int ox=wrap_ox();
+  int y2=PYR_TOP;
+  int rc[4]={4,3,2,1};
+  for (int r=0;r<4;r++) {
+    if (py < y2+TRI_HW) {
+      int rw=rc[r]*SW+(rc[r]-1)*HGAPW;
+      int rpx=ox+(PYR_WW-rw)/2;
+      *lx=rpx; *rx=rpx+rw; return;
+    }
+    y2+=TRI_HW+VGAPW;
+  }
+  *lx=ox; *rx=ox+PYR_WW;
 }
 
 // ── Tile system ───────────────────────────────────────────
@@ -172,6 +207,62 @@ static void build_tiles(uint32_t seed) {
   }
 }
 
+// ── Wrap mode tile builder ────────────────────────────────
+#define TIP_Y_FIXED  107
+#define MAX_WRAP_TILES 300
+static Tile s_wrap_tiles[MAX_WRAP_TILES];
+static int  s_wrap_tile_count = 0;
+
+static void build_wrap_tiles(uint32_t seed) {
+  prng_seed(seed);
+  s_wrap_tile_count = 0;
+
+  char left_date[12], right_date[12];
+  snprintf(left_date,  sizeof(left_date),  "%s%s", s_day_str, s_mon_str);
+  snprintf(right_date, sizeof(right_date), "%s",   s_wday_str);
+  int llen=(int)strlen(left_date), rlen=(int)strlen(right_date);
+
+  int rows = TIP_Y_FIXED / CHAR_H;
+  int cols  = 144 / CHAR_W;
+  int mid   = 144 / 2;
+
+  typedef struct { int16_t x,y; } WSlot;
+  static WSlot lslots[150], rslots[150];
+  int lsc=0, rsc=0;
+
+  for (int row=0; row<rows; row++) {
+    int py = row*CHAR_H + CHAR_H/2;
+    int plx=0, prx=0;
+    bool in_band = (py > PYR_TOP && py < PYR_TOP+PYR_HW);
+    if (in_band) pyr_x_at_y_wrap(py, &plx, &prx);
+
+    for (int col=0; col<cols; col++) {
+      int cx = col*CHAR_W;
+      if (in_band && cx+CHAR_W > plx && cx < prx) continue;
+      int cy = row*CHAR_H;
+      if (cx < mid && lsc < 150) lslots[lsc++]=(WSlot){(int16_t)cx,(int16_t)cy};
+      else if (cx >= mid && rsc < 150) rslots[rsc++]=(WSlot){(int16_t)cx,(int16_t)cy};
+    }
+  }
+
+  int lhi[12], rhi[12];
+  for (int i=0;i<llen&&i<12;i++) lhi[i]=(lsc>0)?((i+1)*lsc/(llen+1)):0;
+  for (int i=0;i<rlen&&i<12;i++) rhi[i]=(rsc>0)?((i+1)*rsc/(rlen+1)):0;
+
+  int di=0;
+  for (int i=0;i<lsc&&s_wrap_tile_count<MAX_WRAP_TILES;i++) {
+    bool hi=(di<llen && lhi[di]==i);
+    char ch=hi?left_date[di++]:noise_char();
+    s_wrap_tiles[s_wrap_tile_count++]=(Tile){lslots[i].x,lslots[i].y,ch,hi,CHAR_H};
+  }
+  di=0;
+  for (int i=0;i<rsc&&s_wrap_tile_count<MAX_WRAP_TILES;i++) {
+    bool hi=(di<rlen && rhi[di]==i);
+    char ch=hi?right_date[di++]:noise_char();
+    s_wrap_tiles[s_wrap_tile_count++]=(Tile){rslots[i].x,rslots[i].y,ch,hi,CHAR_H};
+  }
+}
+
 // ── Canvas draw ───────────────────────────────────────────
 static void canvas_draw(Layer *layer, GContext *ctx) {
   GRect bounds=layer_get_bounds(layer);
@@ -189,39 +280,82 @@ static void canvas_draw(Layer *layer, GContext *ctx) {
   GFont gothic14 = fonts_get_system_font(FONT_KEY_GOTHIC_14);
   GFont gothic18 = fonts_get_system_font(FONT_KEY_GOTHIC_18);
   char buf[2]={0,0};
-  for (int i=0;i<s_tile_count;i++) {
-    buf[0]=s_tiles[i].ch;
-    GFont tf = (s_tiles[i].sz <= 9)  ? gothic09 :
-               (s_tiles[i].sz <= 14) ? gothic14 : gothic18;
-    graphics_context_set_text_color(ctx, s_tiles[i].hi?col_text():col_muted());
-    graphics_draw_text(ctx, buf, tf,
-      GRect(s_tiles[i].x, s_tiles[i].y, s_tiles[i].sz+4, s_tiles[i].sz+4),
-      GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
+
+  if (s_layout_mode == 0) {
+    // standard mode — band tiles
+    for (int i=0;i<s_tile_count;i++) {
+      buf[0]=s_tiles[i].ch;
+      GFont tf = (s_tiles[i].sz <= 9)  ? gothic09 :
+                 (s_tiles[i].sz <= 14) ? gothic14 : gothic18;
+      graphics_context_set_text_color(ctx, s_tiles[i].hi?col_text():col_muted());
+      graphics_draw_text(ctx, buf, tf,
+        GRect(s_tiles[i].x, s_tiles[i].y, s_tiles[i].sz+4, s_tiles[i].sz+4),
+        GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
+    }
+  } else {
+    // wrap mode — full canvas tiles
+    for (int i=0;i<s_wrap_tile_count;i++) {
+      buf[0]=s_wrap_tiles[i].ch;
+      graphics_context_set_text_color(ctx, s_wrap_tiles[i].hi?col_text():col_muted());
+      graphics_draw_text(ctx, buf, gothic09,
+        GRect(s_wrap_tiles[i].x, s_wrap_tiles[i].y, CHAR_W+2, CHAR_H+2),
+        GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
+    }
   }
 
   // ── Pyramid ────────────────────────────────────────────
   int filled=(s_batt_pct+9)/10;
-  int rc[4]={4,3,2,1};
-  int ti=0, y=PYR_OY;
-  for (int r=0;r<4;r++) {
-    int count=rc[r];
-    int rw=count*S+(count-1)*HGAP;
-    int rx=PYR_OX+(PYR_W-rw)/2;
-    for (int i=0;i<count;i++) {
-      int cx=rx+i*(S+HGAP)+S/2;
-      bool is_f=false;
-      for (int f=0;f<filled;f++) if(FILL_ORDER[f]==ti){is_f=true;break;}
-      GPathInfo info={.num_points=3,.points=(GPoint[]){{cx-S/2,y},{cx+S/2,y},{cx,y+TRI_H}}};
-      GPath *path=gpath_create(&info);
-      graphics_context_set_fill_color(ctx,is_f?col_text():col_muted());
-      gpath_draw_filled(ctx,path);
-      graphics_context_set_stroke_color(ctx,col_text());
-      graphics_context_set_stroke_width(ctx,1);
-      gpath_draw_outline(ctx,path);
-      gpath_destroy(path);
-      ti++;
+  int ti=0;
+
+  if (s_layout_mode == 0) {
+    // standard pyramid
+    int rc[4]={4,3,2,1};
+    int y=PYR_OY;
+    for (int r=0;r<4;r++) {
+      int count=rc[r];
+      int rw=count*S+(count-1)*HGAP;
+      int rx=PYR_OX+(PYR_W-rw)/2;
+      for (int i=0;i<count;i++) {
+        int cx=rx+i*(S+HGAP)+S/2;
+        bool is_f=false;
+        for (int f=0;f<filled;f++) if(FILL_ORDER[f]==ti){is_f=true;break;}
+        GPathInfo info={.num_points=3,.points=(GPoint[]){{cx-S/2,y},{cx+S/2,y},{cx,y+TRI_H}}};
+        GPath *path=gpath_create(&info);
+        graphics_context_set_fill_color(ctx,is_f?col_text():col_muted());
+        gpath_draw_filled(ctx,path);
+        graphics_context_set_stroke_color(ctx,col_text());
+        graphics_context_set_stroke_width(ctx,1);
+        gpath_draw_outline(ctx,path);
+        gpath_destroy(path);
+        ti++;
+      }
+      y+=TRI_H+VGAP;
     }
-    y+=TRI_H+VGAP;
+  } else {
+    // wrap mode pyramid
+    int ox=wrap_ox();
+    int rc[4]={4,3,2,1};
+    int y=PYR_TOP;
+    for (int r=0;r<4;r++) {
+      int count=rc[r];
+      int rw=count*SW+(count-1)*HGAPW;
+      int rx=ox+(PYR_WW-rw)/2;
+      for (int i=0;i<count;i++) {
+        int cx=rx+i*(SW+HGAPW)+SW/2;
+        bool is_f=false;
+        for (int f=0;f<filled;f++) if(FILL_ORDER[f]==ti){is_f=true;break;}
+        GPathInfo info={.num_points=3,.points=(GPoint[]){{cx-SW/2,y},{cx+SW/2,y},{cx,y+TRI_HW}}};
+        GPath *path=gpath_create(&info);
+        graphics_context_set_fill_color(ctx,is_f?col_text():col_muted());
+        gpath_draw_filled(ctx,path);
+        graphics_context_set_stroke_color(ctx,col_text());
+        graphics_context_set_stroke_width(ctx,1);
+        gpath_draw_outline(ctx,path);
+        gpath_destroy(path);
+        ti++;
+      }
+      y+=TRI_HW+VGAPW;
+    }
   }
 
   // ── Time HH / MM ───────────────────────────────────────
@@ -233,7 +367,7 @@ static void canvas_draw(Layer *layer, GContext *ctx) {
   #define STAT_GAP 2   // px gap between stat lines
   #define TIME_W  36   // width of "00" at sz=28
 
-  int bottom_y = PYR_OY + PYR_H;   // 107 — pin directly, no gap
+  int bottom_y = TIP_Y_FIXED;   // always 107, both modes
   char hh[3],mm[3];
   snprintf(hh,3,"%02d",s_hour);
   snprintf(mm,3,"%02d",s_minute);
@@ -307,23 +441,29 @@ static void tick_handler(struct tm *t, TimeUnits units) {
   s_hour=t->tm_hour; s_minute=t->tm_min;
   if(units&HOUR_UNIT){
     build_date_strings();
-    build_tiles((uint32_t)(t->tm_hour*1000+t->tm_mday*100));
+    uint32_t seed=(uint32_t)(t->tm_hour*1000+t->tm_mday*100);
+    build_tiles(seed);
+    build_wrap_tiles(seed);
   }
   layer_mark_dirty(s_canvas);
 }
 
 static void inbox_received(DictionaryIterator *iter, void *ctx) {
   Tuple *t;
-  t=dict_find(iter,KEY_BG_CHOICE);   if(t){s_bg_choice=  (int)t->value->int32;persist_write_int(KEY_BG_CHOICE,  s_bg_choice);}
-  t=dict_find(iter,KEY_STAT_STYLE);  if(t){s_stat_style= (int)t->value->int32;persist_write_int(KEY_STAT_STYLE,s_stat_style);}
-  t=dict_find(iter,KEY_DATE_STYLE);  if(t){s_date_style= (int)t->value->int32;persist_write_int(KEY_DATE_STYLE,s_date_style);}
-  t=dict_find(iter,KEY_STAT_1);      if(t){s_stats[0]=   (int)t->value->int32;persist_write_int(KEY_STAT_1,    s_stats[0]);}
-  t=dict_find(iter,KEY_STAT_2);      if(t){s_stats[1]=   (int)t->value->int32;persist_write_int(KEY_STAT_2,    s_stats[1]);}
-  t=dict_find(iter,KEY_STAT_3);      if(t){s_stats[2]=   (int)t->value->int32;persist_write_int(KEY_STAT_3,    s_stats[2]);}
-  t=dict_find(iter,KEY_STAT_4);      if(t){s_stats[3]=   (int)t->value->int32;persist_write_int(KEY_STAT_4,    s_stats[3]);}
+  t=dict_find(iter,KEY_BG_CHOICE);   if(t){s_bg_choice=   (int)t->value->int32;persist_write_int(KEY_BG_CHOICE,   s_bg_choice);}
+  t=dict_find(iter,KEY_STAT_STYLE);  if(t){s_stat_style=  (int)t->value->int32;persist_write_int(KEY_STAT_STYLE, s_stat_style);}
+  t=dict_find(iter,KEY_DATE_STYLE);  if(t){s_date_style=  (int)t->value->int32;persist_write_int(KEY_DATE_STYLE, s_date_style);}
+  t=dict_find(iter,KEY_LAYOUT_MODE); if(t){s_layout_mode= (int)t->value->int32;persist_write_int(KEY_LAYOUT_MODE,s_layout_mode);}
+  t=dict_find(iter,KEY_PYR_POS);     if(t){s_pyr_pos=     (int)t->value->int32;persist_write_int(KEY_PYR_POS,    s_pyr_pos);}
+  t=dict_find(iter,KEY_STAT_1);      if(t){s_stats[0]=    (int)t->value->int32;persist_write_int(KEY_STAT_1,     s_stats[0]);}
+  t=dict_find(iter,KEY_STAT_2);      if(t){s_stats[1]=    (int)t->value->int32;persist_write_int(KEY_STAT_2,     s_stats[1]);}
+  t=dict_find(iter,KEY_STAT_3);      if(t){s_stats[2]=    (int)t->value->int32;persist_write_int(KEY_STAT_3,     s_stats[2]);}
+  t=dict_find(iter,KEY_STAT_4);      if(t){s_stats[3]=    (int)t->value->int32;persist_write_int(KEY_STAT_4,     s_stats[3]);}
   build_date_strings();
   time_t now=time(NULL); struct tm *tm=localtime(&now);
-  build_tiles((uint32_t)(tm->tm_hour*1000+tm->tm_mday*100+prng_next()%97));
+  uint32_t seed=(uint32_t)(tm->tm_hour*1000+tm->tm_mday*100+prng_next()%97);
+  build_tiles(seed);
+  build_wrap_tiles(seed);
   layer_mark_dirty(s_canvas);
 }
 
@@ -332,10 +472,12 @@ static void window_load(Window *window) {
   Layer *root=window_get_root_layer(window);
   GRect bounds=layer_get_bounds(root);
 
-  s_bg_choice  =persist_exists(KEY_BG_CHOICE)  ?persist_read_int(KEY_BG_CHOICE)  :0;
-  s_stat_style =persist_exists(KEY_STAT_STYLE) ?persist_read_int(KEY_STAT_STYLE) :0;
-  s_date_style =persist_exists(KEY_DATE_STYLE) ?persist_read_int(KEY_DATE_STYLE) :0;
-  s_stats[0]   =persist_exists(KEY_STAT_1)     ?persist_read_int(KEY_STAT_1)     :0;
+  s_bg_choice   =persist_exists(KEY_BG_CHOICE)   ?persist_read_int(KEY_BG_CHOICE)   :0;
+  s_stat_style  =persist_exists(KEY_STAT_STYLE)  ?persist_read_int(KEY_STAT_STYLE)  :0;
+  s_date_style  =persist_exists(KEY_DATE_STYLE)  ?persist_read_int(KEY_DATE_STYLE)  :0;
+  s_layout_mode =persist_exists(KEY_LAYOUT_MODE) ?persist_read_int(KEY_LAYOUT_MODE) :0;
+  s_pyr_pos     =persist_exists(KEY_PYR_POS)     ?persist_read_int(KEY_PYR_POS)     :1;
+  s_stats[0]    =persist_exists(KEY_STAT_1)      ?persist_read_int(KEY_STAT_1)      :0;
   s_stats[1]   =persist_exists(KEY_STAT_2)     ?persist_read_int(KEY_STAT_2)     :1;
   s_stats[2]   =persist_exists(KEY_STAT_3)     ?persist_read_int(KEY_STAT_3)     :2;
   s_stats[3]   =persist_exists(KEY_STAT_4)     ?persist_read_int(KEY_STAT_4)     :3;
@@ -350,7 +492,9 @@ static void window_load(Window *window) {
   build_date_strings();
   time_t now=time(NULL); struct tm *t=localtime(&now);
   s_hour=t->tm_hour; s_minute=t->tm_min;
-  build_tiles((uint32_t)(t->tm_hour*1000+t->tm_mday*100));
+  uint32_t seed=(uint32_t)(t->tm_hour*1000+t->tm_mday*100);
+  build_tiles(seed);
+  build_wrap_tiles(seed);
 
   s_batt_pct=battery_state_service_peek().charge_percent;
   battery_state_service_subscribe(batt_handler);
