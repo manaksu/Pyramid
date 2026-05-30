@@ -6,6 +6,7 @@
  *   2 = STAT_1      : 0=Steps 1=HR 2=Sleep 3=Calories 4=Distance
  *   3 = STAT_2
  *   4 = STAT_3
+ *   5 = STAT_4
  */
 
 function loadCfg() {
@@ -14,7 +15,8 @@ function loadCfg() {
     statStyle: +(localStorage.getItem('pw_ss')    || '0'),
     stat1:     +(localStorage.getItem('pw_s1')    || '0'),
     stat2:     +(localStorage.getItem('pw_s2')    || '1'),
-    stat3:     +(localStorage.getItem('pw_s3')    || '2')
+    stat3:     +(localStorage.getItem('pw_s3')    || '2'),
+    stat4:     +(localStorage.getItem('pw_s4')    || '3')
   };
 }
 
@@ -24,11 +26,12 @@ function saveCfg(c) {
   localStorage.setItem('pw_s1', c.stat1);
   localStorage.setItem('pw_s2', c.stat2);
   localStorage.setItem('pw_s3', c.stat3);
+  localStorage.setItem('pw_s4', c.stat4);
 }
 
 function sendMsg(c) {
   Pebble.sendAppMessage(
-    { '0': c.bg, '1': c.statStyle, '2': c.stat1, '3': c.stat2, '4': c.stat3 },
+    { '0': c.bg, '1': c.statStyle, '2': c.stat1, '3': c.stat2, '4': c.stat3, '5': c.stat4 },
     function() { console.log('PyramidWatch: sent ok'); },
     function(e) { console.log('PyramidWatch: failed', JSON.stringify(e)); }
   );
@@ -75,12 +78,13 @@ function buildConfig(c) {
     + '<label class="opt"><input type="radio" name="bg" value="2"'+(c.bg===2?' checked':'')+'><div class="swatch white"></div><span>ePaper White</span></label>'
 
     + '<h3>Stat label style</h3>'
-    + radio('statStyle', ['Short — STP / HR / SL', 'Full — Steps / Heart / Sleep'], c.statStyle)
+    + radio('statStyle', ['Short — STP / HR / SL / CAL', 'Full — Steps / Heart Rate / Sleep / Calories'], c.statStyle)
 
     + '<h3>Health stats</h3>'
     + '<div class="row"><label>Stat 1</label>'+select('stat1', STAT_OPTS, c.stat1)+'</div>'
     + '<div class="row"><label>Stat 2</label>'+select('stat2', STAT_OPTS, c.stat2)+'</div>'
     + '<div class="row"><label>Stat 3</label>'+select('stat3', STAT_OPTS, c.stat3)+'</div>'
+    + '<div class="row"><label>Stat 4</label>'+select('stat4', STAT_OPTS, c.stat4)+'</div>'
 
     + '<button id="s">Save</button>'
     + '<script>'
@@ -88,7 +92,7 @@ function buildConfig(c) {
     + 'function gs(n){var e=document.querySelector("select[name="+n+"]");return e?+e.value:0;}'
     + 'document.getElementById("s").onclick=function(){'
     +   'location.href="pebblejs://close#"+encodeURIComponent(JSON.stringify({'
-    +   'bg:g("bg"),statStyle:g("statStyle"),stat1:gs("stat1"),stat2:gs("stat2"),stat3:gs("stat3")}));'
+    +   'bg:g("bg"),statStyle:g("statStyle"),stat1:gs("stat1"),stat2:gs("stat2"),stat3:gs("stat3"),stat4:gs("stat4")}));'
     + '};<\/script></body></html>';
 
   return 'data:text/html,'+encodeURIComponent(h);

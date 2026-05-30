@@ -13,7 +13,8 @@
     "STAT_STYLE":  1,
     "STAT_1":      2,
     "STAT_2":      3,
-    "STAT_3":      4
+    "STAT_3":      4,
+    "STAT_4":      5
   },
   "resources": {
     "media": [
@@ -25,7 +26,7 @@
       },
       {
         "type": "font",
-        "name": "FONT_SG_REGULAR_11",
+        "name": "FONT_SG_REGULAR_10",
         "file": "fonts/SpaceGrotesk-Regular.ttf",
         "characterRegex": "[0-9A-Za-z :./]"
       }

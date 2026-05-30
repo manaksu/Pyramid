@@ -7,6 +7,7 @@
 #define KEY_STAT_1       2
 #define KEY_STAT_2       3
 #define KEY_STAT_3       4
+#define KEY_STAT_4       5
 
 // ── Pyramid geometry ──────────────────────────────────────
 #define S        26
@@ -30,7 +31,7 @@ static GFont   s_stat_font;
 
 static int s_bg_choice  = 0;
 static int s_stat_style = 0;
-static int s_stats[3]   = {0,1,2};
+static int s_stats[4]   = {0,1,2,3};
 static int s_batt_pct   = 100;
 static int s_hour       = 0;
 static int s_minute     = 0;
@@ -190,10 +191,11 @@ static void canvas_draw(Layer *layer, GContext *ctx) {
   // ── Time HH / MM ───────────────────────────────────────
   // TIP_Y=107  BOT_H=61px
   // sz=28: actual line_h=27px, 2 lines=54px fits ✓
-  // sz=11 stats: lh=8px, 3 lines=24px fits ✓ side-by-side
+  // sz=10 stats: lh=9px, 4 lines + 3x2px gaps = 42px fits ✓
   #define TIME_LH 27
-  #define STAT_LH  9
-  #define TIME_W  36   // measured width of "00" at sz=28
+  #define STAT_LH 10   // line height at sz=10
+  #define STAT_GAP 2   // px gap between stat lines
+  #define TIME_W  36   // width of "00" at sz=28
 
   int bottom_y = PYR_OY + PYR_H;   // 107 — pin directly, no gap
   char hh[3],mm[3];
@@ -201,19 +203,20 @@ static void canvas_draw(Layer *layer, GContext *ctx) {
   snprintf(mm,3,"%02d",s_minute);
 
   graphics_context_set_text_color(ctx,col_text());
-  graphics_draw_text(ctx,hh,time_fnt,GRect(4,bottom_y,          TIME_W+4,TIME_LH+4),GTextOverflowModeWordWrap,GTextAlignmentLeft,NULL);
-  graphics_draw_text(ctx,mm,time_fnt,GRect(4,bottom_y+TIME_LH,  TIME_W+4,TIME_LH+4),GTextOverflowModeWordWrap,GTextAlignmentLeft,NULL);
+  graphics_draw_text(ctx,hh,time_fnt,GRect(4,bottom_y,         TIME_W+4,TIME_LH+4),GTextOverflowModeWordWrap,GTextAlignmentLeft,NULL);
+  graphics_draw_text(ctx,mm,time_fnt,GRect(4,bottom_y+TIME_LH, TIME_W+4,TIME_LH+4),GTextOverflowModeWordWrap,GTextAlignmentLeft,NULL);
 
   int stats_x = 4+TIME_W+6;
   int stats_w = 144-stats_x-2;
 
-  // ── Stats ──────────────────────────────────────────────
+  // ── Stats — 4 lines, full labels ──────────────────────
+  // Full labels: Steps / Heart Rate / Sleep / Calories / Distance
   const char *sl[]={"STP","HR","SL","CAL","DST"};
-  const char *fl[]={"Steps","Heart","Sleep","Cal","Dist"};
+  const char *fl[]={"Steps","Heart Rate","Sleep","Calories","Distance"};
   const char **lbls=(s_stat_style==0)?sl:fl;
 
-  char sv[3][24];
-  for (int i=0;i<3;i++) {
+  char sv[4][24];
+  for (int i=0;i<4;i++) {
     switch(s_stats[i]) {
       case 0: snprintf(sv[i],24,"%d",s_steps); break;
       case 1: snprintf(sv[i],24,"%d BPM",s_hr); break;
@@ -224,12 +227,12 @@ static void canvas_draw(Layer *layer, GContext *ctx) {
     }
   }
 
-  // vertically center 3 stat lines in BOT_H (61px)
-  int stats_total_h = STAT_LH * 3;
+  // vertically center 4 lines + 3 gaps in BOT_H (61px)
+  int stats_total_h = STAT_LH*4 + STAT_GAP*3;  // 40+6 = 46px
   int s_start = bottom_y + (61 - stats_total_h) / 2;
-  for (int i=0;i<3;i++) {
-    int sy=s_start+i*STAT_LH;
-    char line[32];
+  for (int i=0;i<4;i++) {
+    int sy = s_start + i*(STAT_LH+STAT_GAP);
+    char line[40];
     snprintf(line,sizeof(line),"%s:%s",lbls[s_stats[i]],sv[i]);
     graphics_context_set_text_color(ctx,col_text());
     graphics_draw_text(ctx,line,stat_fnt,GRect(stats_x,sy,stats_w,STAT_LH+2),GTextOverflowModeWordWrap,GTextAlignmentLeft,NULL);
@@ -280,6 +283,7 @@ static void inbox_received(DictionaryIterator *iter, void *ctx) {
   t=dict_find(iter,KEY_STAT_1);      if(t){s_stats[0]=   (int)t->value->int32;persist_write_int(KEY_STAT_1,    s_stats[0]);}
   t=dict_find(iter,KEY_STAT_2);      if(t){s_stats[1]=   (int)t->value->int32;persist_write_int(KEY_STAT_2,    s_stats[1]);}
   t=dict_find(iter,KEY_STAT_3);      if(t){s_stats[2]=   (int)t->value->int32;persist_write_int(KEY_STAT_3,    s_stats[2]);}
+  t=dict_find(iter,KEY_STAT_4);      if(t){s_stats[3]=   (int)t->value->int32;persist_write_int(KEY_STAT_4,    s_stats[3]);}
   build_date_strings();
   time_t now=time(NULL); struct tm *tm=localtime(&now);
   build_tiles((uint32_t)(tm->tm_hour*1000+tm->tm_mday*100+prng_next()%97));
@@ -296,13 +300,14 @@ static void window_load(Window *window) {
   s_stats[0]   =persist_exists(KEY_STAT_1)     ?persist_read_int(KEY_STAT_1)     :0;
   s_stats[1]   =persist_exists(KEY_STAT_2)     ?persist_read_int(KEY_STAT_2)     :1;
   s_stats[2]   =persist_exists(KEY_STAT_3)     ?persist_read_int(KEY_STAT_3)     :2;
+  s_stats[3]   =persist_exists(KEY_STAT_4)     ?persist_read_int(KEY_STAT_4)     :3;
 
   s_canvas=layer_create(bounds);
   layer_set_update_proc(s_canvas,canvas_draw);
   layer_add_child(root,s_canvas);
 
   s_time_font=fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_SG_MEDIUM_28));
-  s_stat_font=fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_SG_REGULAR_11));
+  s_stat_font=fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_SG_REGULAR_10));
 
   build_date_strings();
   time_t now=time(NULL); struct tm *t=localtime(&now);
