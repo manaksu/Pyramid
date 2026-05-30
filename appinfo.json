@@ -1,0 +1,34 @@
+{
+  "uuid": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+  "shortName": "PyramidWatch",
+  "longName": "PyramidWatch",
+  "companyName": "Manaksu",
+  "versionLabel": "1.0",
+  "sdkVersion": "3",
+  "targetPlatforms": ["basalt"],
+  "watchapp": { "watchface": true },
+  "capabilities": ["configurable", "health"],
+  "appKeys": {
+    "BG_CHOICE":   0,
+    "STAT_STYLE":  1,
+    "STAT_1":      2,
+    "STAT_2":      3,
+    "STAT_3":      4
+  },
+  "resources": {
+    "media": [
+      {
+        "type": "font",
+        "name": "FONT_SG_MEDIUM_40",
+        "file": "fonts/SpaceGrotesk-Medium.ttf",
+        "characterRegex": "[0-9]"
+      },
+      {
+        "type": "font",
+        "name": "FONT_SG_REGULAR_11",
+        "file": "fonts/SpaceGrotesk-Regular.ttf",
+        "characterRegex": "[0-9A-Za-z :./]"
+      }
+    ]
+  }
+}
