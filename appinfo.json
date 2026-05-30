@@ -3,9 +3,9 @@
   "shortName": "PyramidWatch",
   "longName": "PyramidWatch",
   "companyName": "Manaksu",
-  "versionLabel": "1.0",
+  "versionLabel": "1.1",
   "sdkVersion": "3",
-  "targetPlatforms": ["basalt"],
+  "targetPlatforms": ["basalt", "diorite"],
   "watchapp": { "watchface": true },
   "capabilities": ["configurable", "health"],
   "appKeys": {

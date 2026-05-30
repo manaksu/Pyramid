@@ -430,14 +430,26 @@ static void canvas_draw(Layer *layer, GContext *ctx) {
   }
 
   // vertically center 4 lines + 3 gaps in BOT_H (61px)
-  int stats_total_h = STAT_LH*4 + STAT_GAP*3;  // 40+6 = 46px
+  int stats_total_h = STAT_LH*4 + STAT_GAP*3;
   int s_start = bottom_y + (61 - stats_total_h) / 2;
   for (int i=0;i<4;i++) {
     int sy = s_start + i*(STAT_LH+STAT_GAP);
-    char line[40];
-    snprintf(line,sizeof(line),"%s:%s",lbls[s_stats[i]],sv[i]);
-    graphics_context_set_text_color(ctx,col_text());
-    graphics_draw_text(ctx,line,stat_fnt,GRect(stats_x,sy,stats_w,STAT_LH+2),GTextOverflowModeWordWrap,GTextAlignmentLeft,NULL);
+    // Draw label muted, value in text color — separately
+    char lbl_str[24], val_str[24];
+    snprintf(lbl_str, sizeof(lbl_str), "%s:", lbls[s_stats[i]]);
+    snprintf(val_str, sizeof(val_str), "%s", sv[i]);
+    // measure label width to position value after it
+    GSize lbl_sz = graphics_text_layout_get_content_size(
+      lbl_str, stat_fnt, GRect(0,0,stats_w,STAT_LH+2),
+      GTextOverflowModeWordWrap, GTextAlignmentLeft);
+    graphics_context_set_text_color(ctx, col_muted());
+    graphics_draw_text(ctx, lbl_str, stat_fnt,
+      GRect(stats_x, sy, stats_w, STAT_LH+2),
+      GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
+    graphics_context_set_text_color(ctx, col_text());
+    graphics_draw_text(ctx, val_str, stat_fnt,
+      GRect(stats_x + lbl_sz.w, sy, stats_w - lbl_sz.w, STAT_LH+2),
+      GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
   }
 }
 
@@ -510,7 +522,7 @@ static void window_load(Window *window) {
   s_date_style  =persist_exists(KEY_DATE_STYLE)  ?persist_read_int(KEY_DATE_STYLE)  :0;
   s_layout_mode =persist_exists(KEY_LAYOUT_MODE) ?persist_read_int(KEY_LAYOUT_MODE) :0;
   s_pyr_pos     =persist_exists(KEY_PYR_POS)     ?persist_read_int(KEY_PYR_POS)     :1;
-  s_wrap_font   =persist_exists(KEY_WRAP_FONT)   ?persist_read_int(KEY_WRAP_FONT)   :0;
+  s_wrap_font   =persist_exists(KEY_WRAP_FONT)   ?persist_read_int(KEY_WRAP_FONT)   :1;
   s_stats[0]    =persist_exists(KEY_STAT_1)      ?persist_read_int(KEY_STAT_1)      :0;
   s_stats[1]   =persist_exists(KEY_STAT_2)     ?persist_read_int(KEY_STAT_2)     :1;
   s_stats[2]   =persist_exists(KEY_STAT_3)     ?persist_read_int(KEY_STAT_3)     :2;

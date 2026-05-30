@@ -1,12 +1,23 @@
 # PyramidWatch
 
-**A Pebble Time Steel (Basalt) watchface by [Manaksu](https://manaksuwebsite.vercel.app)**
+**A Pebble watchface by [Manaksu](https://manaksuwebsite.vercel.app)**
 
 ![PyramidWatch](preview.gif)
 
 An original watchface concept built around geometry and typography. Ten inverted equilateral triangles form a pyramid — each triangle represents 10% battery, draining from the tip upward. The surrounding space fills with alphanumeric noise, with the date hidden inside it. Time and health stats anchor the bottom.
 
 > **This concept is original.** An inverted triangle pyramid as a battery indicator, combined with typographic noise wrapping around geometry, does not exist on any other watchface platform as of May 2026.
+
+---
+
+## Compatibility
+
+| Platform | Hardware | Screen |
+|---|---|---|
+| **Basalt** | Pebble Time, Pebble Time Steel | Color 144×168 |
+| **Diorite** | Pebble 2, Pebble 2 SE, Pebble 2 HR | B&W 144×168 |
+
+> **Note:** Heart Rate stat requires Pebble 2 HR. On Pebble Time / Time Steel the HR stat will show 0 — use Steps, Sleep, Calories, or Distance instead.
 
 ---
 
@@ -22,7 +33,15 @@ Smaller pyramid positioned at left, center, or right. Date text fills the entire
 
 ## Bottom section (both modes)
 - Left: `HH` / `MM` stacked, Space Grotesk Medium
-- Right of time: 4 live health stats, label muted + value highlighted
+- Right of time: 4 live health stats — label muted, value highlighted
+
+---
+
+## Screenshots
+
+| Standard · Cream | Standard · Black | Wrap · Center | Wrap · Left |
+|---|---|---|---|
+| ![](screenshots/01_cream_std_100.png) | ![](screenshots/04_black_std_70.png) | ![](screenshots/11_wrap_center_lg.png) | ![](screenshots/13_black_wrap_lg.png) |
 
 ---
 
@@ -33,10 +52,12 @@ Smaller pyramid positioned at left, center, or right. Date text fills the entire
 | Background | ePaper Cream / Black / White |
 | Layout mode | Standard / Wrap |
 | Pyramid position | Left / Center / Right *(wrap mode)* |
-| Wrap text size | Small / Large *(wrap mode)* |
+| Wrap text size | Small / Large *(wrap mode, default: Large)* |
 | Date font style | Uniform / Scaled *(standard mode)* |
 | Stat label style | Short (STP/HR/SL/CAL) / Full (Steps/Heart Rate/Sleep/Calories) |
-| Stat 1–4 | Steps, Heart Rate, Sleep, Calories, Distance |
+| Stat 1–4 | Steps, Heart Rate*, Sleep, Calories, Distance |
+
+*Heart Rate requires Pebble 2 HR
 
 All settings persist across restarts. Date band regenerates each hour via seeded PRNG.
 
@@ -71,12 +92,13 @@ All settings persist across restarts. Date band regenerates each hour via seeded
 ## Pixel budget
 
 ```
-Screen:   144 × 168px
-PYR_OY=4  PYR_H=103  TIP_Y=107  BOT_H=61
-Time:     2 × 27px = 54px  (sz=28, fits in 61px)
-Stats:    4 × 10px + 3×2px gaps = 46px  (sz=10, side-by-side with time)
+Screen:      144 × 168px
+PYR_OY=4     PYR_H=103    TIP_Y=107    BOT_H=61
+Time:        2 × 27px = 54px  (sz=28, fits in 61px)
+Stats:       4 × 10px + 3×2px gaps = 46px (side-by-side with time)
 
-Wrap pyramid:  S=14  PYR_WW=65  PYR_HW=57  PYR_TOP=25
+Wrap pyramid: S=14  PYR_WW=65  PYR_HW=57  PYR_TOP=25
+Wrap flush:   scans every pixel line per char row for exact triangle edge
 ```
 
 ---
@@ -85,18 +107,36 @@ Wrap pyramid:  S=14  PYR_WW=65  PYR_HW=57  PYR_TOP=25
 
 ```
 src/
-  main.c                — watchface C code (~530 lines)
+  main.c                — watchface C code
   js/
     index.js            — PebbleKit JS settings UI (inline data:text/html)
 resources/
   fonts/
     SpaceGrotesk-Medium.ttf
     SpaceGrotesk-Regular.ttf
-appinfo.json
-triangle_battery.c      — saved battery modules (not compiled):
+screenshots/            — store + README screenshots
+preview.gif             — animated preview
+appinfo.json            — targets basalt + diorite
+triangle_battery.c      — saved modules (not compiled):
                           Module A: triangle pyramid battery
                           Module B: 5-star vertical column battery
 ```
+
+---
+
+## Changelog
+
+### v1.1
+- Added Diorite platform support (Pebble 2, Pebble 2 HR)
+- Fixed stat label/value colour — label now muted, value highlighted
+- Wrap mode large font is now default
+- Triangle-flush wrap: chars hug actual silhouette per pixel row
+
+### v1.0
+- Initial release
+- Basalt only (Pebble Time, Pebble Time Steel)
+- Standard and Wrap layout modes
+- 10 configurable settings
 
 ---
 
@@ -106,6 +146,4 @@ triangle_battery.c      — saved battery modules (not compiled):
 
 The PyramidWatch concept, design, and implementation are original works. You may view and study this code. You may not use, copy, modify, distribute, or create derivative works — commercial or otherwise — without explicit written permission.
 
----
-
-*Pebble Time Steel · Basalt · SDK 3 · CloudPebble*
+For licensing enquiries: https://manaksuwebsite.vercel.app
