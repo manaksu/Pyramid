@@ -13,6 +13,7 @@ function loadCfg() {
   return {
     bg:        +(localStorage.getItem('pw_bg')    || '0'),
     statStyle: +(localStorage.getItem('pw_ss')    || '0'),
+    dateStyle: +(localStorage.getItem('pw_ds')    || '0'),
     stat1:     +(localStorage.getItem('pw_s1')    || '0'),
     stat2:     +(localStorage.getItem('pw_s2')    || '1'),
     stat3:     +(localStorage.getItem('pw_s3')    || '2'),
@@ -23,6 +24,7 @@ function loadCfg() {
 function saveCfg(c) {
   localStorage.setItem('pw_bg', c.bg);
   localStorage.setItem('pw_ss', c.statStyle);
+  localStorage.setItem('pw_ds', c.dateStyle);
   localStorage.setItem('pw_s1', c.stat1);
   localStorage.setItem('pw_s2', c.stat2);
   localStorage.setItem('pw_s3', c.stat3);
@@ -31,7 +33,7 @@ function saveCfg(c) {
 
 function sendMsg(c) {
   Pebble.sendAppMessage(
-    { '0': c.bg, '1': c.statStyle, '2': c.stat1, '3': c.stat2, '4': c.stat3, '5': c.stat4 },
+    { '0': c.bg, '1': c.statStyle, '2': c.stat1, '3': c.stat2, '4': c.stat3, '5': c.stat4, '6': c.dateStyle },
     function() { console.log('PyramidWatch: sent ok'); },
     function(e) { console.log('PyramidWatch: failed', JSON.stringify(e)); }
   );
@@ -77,6 +79,9 @@ function buildConfig(c) {
     + '<label class="opt"><input type="radio" name="bg" value="1"'+(c.bg===1?' checked':'')+'><div class="swatch black"></div><span>ePaper Black</span></label>'
     + '<label class="opt"><input type="radio" name="bg" value="2"'+(c.bg===2?' checked':'')+'><div class="swatch white"></div><span>ePaper White</span></label>'
 
+    + '<h3>Date font style</h3>'
+    + radio('dateStyle', ['Uniform — same size throughout', 'Scaled — larger toward bottom'], c.dateStyle)
+
     + '<h3>Stat label style</h3>'
     + radio('statStyle', ['Short — STP / HR / SL / CAL', 'Full — Steps / Heart Rate / Sleep / Calories'], c.statStyle)
 
@@ -92,7 +97,7 @@ function buildConfig(c) {
     + 'function gs(n){var e=document.querySelector("select[name="+n+"]");return e?+e.value:0;}'
     + 'document.getElementById("s").onclick=function(){'
     +   'location.href="pebblejs://close#"+encodeURIComponent(JSON.stringify({'
-    +   'bg:g("bg"),statStyle:g("statStyle"),stat1:gs("stat1"),stat2:gs("stat2"),stat3:gs("stat3"),stat4:gs("stat4")}));'
+    +   'bg:g("bg"),statStyle:g("statStyle"),dateStyle:g("dateStyle"),stat1:gs("stat1"),stat2:gs("stat2"),stat3:gs("stat3"),stat4:gs("stat4")}));'
     + '};<\/script></body></html>';
 
   return 'data:text/html,'+encodeURIComponent(h);

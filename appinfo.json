@@ -14,7 +14,8 @@
     "STAT_1":      2,
     "STAT_2":      3,
     "STAT_3":      4,
-    "STAT_4":      5
+    "STAT_4":      5,
+    "DATE_STYLE":  6
   },
   "resources": {
     "media": [
