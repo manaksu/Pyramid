@@ -188,21 +188,25 @@ static void canvas_draw(Layer *layer, GContext *ctx) {
   }
 
   // ── Time HH / MM ───────────────────────────────────────
-  int bottom_y = PYR_OY+PYR_H+4;
-  int bottom_h = 168-bottom_y;
+  // TIP_Y = PYR_OY+PYR_H = 4+103 = 107, BOT_H = 168-107 = 61
+  // TIME_LH = 29px (sz=40), two lines = 58px → fits in 61px
+  // STAT_LH = 13px (sz=14), three lines = 39px → fits in 61px
+  // Both are side-by-side so height = max(58,39) = 58px < 61px ✓
+  #define TIME_LH 29
+  #define STAT_LH 13
+  #define TIME_W  43   // width of "00" at sz=40
+
+  int bottom_y = PYR_OY + PYR_H;   // 107 — pin directly, no gap
   char hh[3],mm[3];
   snprintf(hh,3,"%02d",s_hour);
   snprintf(mm,3,"%02d",s_minute);
 
   graphics_context_set_text_color(ctx,col_text());
-  int half_h=bottom_h/2-1;
-  graphics_draw_text(ctx,hh,time_fnt,GRect(4,bottom_y,          60,half_h),GTextOverflowModeWordWrap,GTextAlignmentLeft,NULL);
-  graphics_draw_text(ctx,mm,time_fnt,GRect(4,bottom_y+half_h+2, 60,half_h),GTextOverflowModeWordWrap,GTextAlignmentLeft,NULL);
+  graphics_draw_text(ctx,hh,time_fnt,GRect(4,bottom_y,          TIME_W+4,TIME_LH+2),GTextOverflowModeWordWrap,GTextAlignmentLeft,NULL);
+  graphics_draw_text(ctx,mm,time_fnt,GRect(4,bottom_y+TIME_LH,  TIME_W+4,TIME_LH+2),GTextOverflowModeWordWrap,GTextAlignmentLeft,NULL);
 
-  // measure time width
-  GSize tw=graphics_text_layout_get_content_size(hh,time_fnt,GRect(0,0,80,50),GTextOverflowModeWordWrap,GTextAlignmentLeft);
-  int stats_x=4+tw.w+6;
-  int stats_w=144-stats_x-2;
+  int stats_x = 4+TIME_W+6;
+  int stats_w = 144-stats_x-2;
 
   // ── Stats ──────────────────────────────────────────────
   const char *sl[]={"STP","HR","SL","CAL","DST"};
@@ -221,13 +225,15 @@ static void canvas_draw(Layer *layer, GContext *ctx) {
     }
   }
 
-  int stat_row_h=bottom_h/3;
+  // vertically center 3 stat lines in BOT_H (61px)
+  int stats_total_h = STAT_LH * 3;
+  int s_start = bottom_y + (61 - stats_total_h) / 2;
   for (int i=0;i<3;i++) {
-    int sy=bottom_y+i*stat_row_h;
+    int sy=s_start+i*STAT_LH;
     char line[32];
     snprintf(line,sizeof(line),"%s:%s",lbls[s_stats[i]],sv[i]);
     graphics_context_set_text_color(ctx,col_text());
-    graphics_draw_text(ctx,line,stat_fnt,GRect(stats_x,sy,stats_w,stat_row_h),GTextOverflowModeWordWrap,GTextAlignmentLeft,NULL);
+    graphics_draw_text(ctx,line,stat_fnt,GRect(stats_x,sy,stats_w,STAT_LH+2),GTextOverflowModeWordWrap,GTextAlignmentLeft,NULL);
   }
 }
 
@@ -297,7 +303,7 @@ static void window_load(Window *window) {
   layer_add_child(root,s_canvas);
 
   s_time_font=fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_SG_MEDIUM_40));
-  s_stat_font=fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_SG_REGULAR_11));
+  s_stat_font=fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_SG_REGULAR_14));
 
   build_date_strings();
   time_t now=time(NULL); struct tm *t=localtime(&now);
