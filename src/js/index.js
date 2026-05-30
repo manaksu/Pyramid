@@ -16,6 +16,7 @@ function loadCfg() {
     dateStyle:   +(localStorage.getItem('pw_ds')    || '0'),
     layoutMode:  +(localStorage.getItem('pw_lm')    || '0'),
     pyrPos:      +(localStorage.getItem('pw_pp')    || '1'),
+    wrapFont:    +(localStorage.getItem('pw_wf')    || '0'),
     stat1:       +(localStorage.getItem('pw_s1')    || '0'),
     stat2:       +(localStorage.getItem('pw_s2')    || '1'),
     stat3:       +(localStorage.getItem('pw_s3')    || '2'),
@@ -29,6 +30,7 @@ function saveCfg(c) {
   localStorage.setItem('pw_ds', c.dateStyle);
   localStorage.setItem('pw_lm', c.layoutMode);
   localStorage.setItem('pw_pp', c.pyrPos);
+  localStorage.setItem('pw_wf', c.wrapFont);
   localStorage.setItem('pw_s1', c.stat1);
   localStorage.setItem('pw_s2', c.stat2);
   localStorage.setItem('pw_s3', c.stat3);
@@ -39,7 +41,7 @@ function sendMsg(c) {
   Pebble.sendAppMessage(
     { '0': c.bg, '1': c.statStyle, '2': c.stat1, '3': c.stat2,
       '4': c.stat3, '5': c.stat4, '6': c.dateStyle,
-      '7': c.layoutMode, '8': c.pyrPos },
+      '7': c.layoutMode, '8': c.pyrPos, '9': c.wrapFont },
     function() { console.log('PyramidWatch: sent ok'); },
     function(e) { console.log('PyramidWatch: failed', JSON.stringify(e)); }
   );
@@ -91,6 +93,9 @@ function buildConfig(c) {
     + '<h3>Pyramid position <span style="font-size:10px;color:#8a7060">(wrap mode)</span></h3>'
     + radio('pyrPos', ['Left', 'Center', 'Right'], c.pyrPos)
 
+    + '<h3>Wrap text size <span style="font-size:10px;color:#8a7060">(wrap mode)</span></h3>'
+    + radio('wrapFont', ['Small', 'Large'], c.wrapFont)
+
     + '<h3>Date font style</h3>'
     + radio('dateStyle', ['Uniform — same size throughout', 'Scaled — larger toward bottom'], c.dateStyle)
 
@@ -110,7 +115,7 @@ function buildConfig(c) {
     + 'document.getElementById("s").onclick=function(){'
     +   'location.href="pebblejs://close#"+encodeURIComponent(JSON.stringify({'
     +   'bg:g("bg"),statStyle:g("statStyle"),dateStyle:g("dateStyle"),'
-    +   'layoutMode:g("layoutMode"),pyrPos:g("pyrPos"),'
+    +   'layoutMode:g("layoutMode"),pyrPos:g("pyrPos"),wrapFont:g("wrapFont"),'
     +   'stat1:gs("stat1"),stat2:gs("stat2"),stat3:gs("stat3"),stat4:gs("stat4")}));'
     + '};<\/script></body></html>';
 

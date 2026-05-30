@@ -17,7 +17,8 @@
     "STAT_4":       5,
     "DATE_STYLE":   6,
     "LAYOUT_MODE":  7,
-    "PYR_POS":      8
+    "PYR_POS":      8,
+    "WRAP_FONT":    9
   },
   "resources": {
     "media": [

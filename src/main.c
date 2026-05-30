@@ -11,6 +11,7 @@
 #define KEY_DATE_STYLE   6  // 0=uniform  1=scaled
 #define KEY_LAYOUT_MODE  7  // 0=standard 1=wrap
 #define KEY_PYR_POS      8  // 0=left 1=center 2=right
+#define KEY_WRAP_FONT    9  // 0=small(sz≈9) 1=large(sz≈11)
 
 // ── Pyramid geometry (standard mode) ─────────────────────
 #define S        26
@@ -46,6 +47,7 @@ static int s_stat_style  = 0;
 static int s_date_style  = 0;  // 0=uniform  1=scaled
 static int s_layout_mode = 0;  // 0=standard 1=wrap
 static int s_pyr_pos     = 1;  // 0=left 1=center 2=right
+static int s_wrap_font   = 0;  // 0=small(GOTHIC_09) 1=large(GOTHIC_14, flush-aligned)
 static int s_stats[4]    = {0,1,2,3};
 static int s_batt_pct   = 100;
 static int s_hour       = 0;
@@ -222,27 +224,40 @@ static void build_wrap_tiles(uint32_t seed) {
   snprintf(right_date, sizeof(right_date), "%s",   s_wday_str);
   int llen=(int)strlen(left_date), rlen=(int)strlen(right_date);
 
-  int rows = TIP_Y_FIXED / CHAR_H;
-  int cols  = 144 / CHAR_W;
-  int mid   = 144 / 2;
+  // font size: small=GOTHIC_09 (~7px wide), large=GOTHIC_14 (~11px wide)
+  int cw = (s_wrap_font == 0) ? CHAR_W  : 11;  // char cell width
+  int ch = (s_wrap_font == 0) ? CHAR_H  : 11;  // char cell height
+  uint8_t tsz = (uint8_t)(s_wrap_font == 0 ? 9 : 14);
+
+  int rows = TIP_Y_FIXED / ch;
+  int mid  = 144 / 2;
 
   typedef struct { int16_t x,y; } WSlot;
   static WSlot lslots[150], rslots[150];
   int lsc=0, rsc=0;
 
+  int row_counts_w[4]={4,3,2,1};
+
   for (int row=0; row<rows; row++) {
-    int py = row*CHAR_H + CHAR_H/2;
-    int plx=0, prx=0;
+    int py = row*ch + ch/2;
     bool in_band = (py > PYR_TOP && py < PYR_TOP+PYR_HW);
+    int plx=0, prx=144;
     if (in_band) pyr_x_at_y_wrap(py, &plx, &prx);
 
-    for (int col=0; col<cols; col++) {
-      int cx = col*CHAR_W;
-      if (in_band && cx+CHAR_W > plx && cx < prx) continue;
-      int cy = row*CHAR_H;
-      if (cx < mid && lsc < 150) lslots[lsc++]=(WSlot){(int16_t)cx,(int16_t)cy};
-      else if (cx >= mid && rsc < 150) rslots[rsc++]=(WSlot){(int16_t)cx,(int16_t)cy};
-    }
+    // left side: flush RIGHT against pyramid (right-align to plx)
+    int left_cols  = plx / cw;
+    int left_start = plx - left_cols * cw;   // flush right
+
+    // right side: flush LEFT against pyramid (left-align from prx)
+    int right_avail = 144 - prx;
+    int right_cols  = right_avail / cw;
+    int right_start = prx;                    // flush left
+
+    int cy = row * ch;
+    for (int col=0; col<left_cols && lsc<150; col++)
+      lslots[lsc++]=(WSlot){(int16_t)(left_start+col*cw),(int16_t)cy};
+    for (int col=0; col<right_cols && rsc<150; col++)
+      rslots[rsc++]=(WSlot){(int16_t)(right_start+col*cw),(int16_t)cy};
   }
 
   int lhi[12], rhi[12];
@@ -252,14 +267,14 @@ static void build_wrap_tiles(uint32_t seed) {
   int di=0;
   for (int i=0;i<lsc&&s_wrap_tile_count<MAX_WRAP_TILES;i++) {
     bool hi=(di<llen && lhi[di]==i);
-    char ch=hi?left_date[di++]:noise_char();
-    s_wrap_tiles[s_wrap_tile_count++]=(Tile){lslots[i].x,lslots[i].y,ch,hi,CHAR_H};
+    char ch2=hi?left_date[di++]:noise_char();
+    s_wrap_tiles[s_wrap_tile_count++]=(Tile){lslots[i].x,lslots[i].y,ch2,hi,tsz};
   }
   di=0;
   for (int i=0;i<rsc&&s_wrap_tile_count<MAX_WRAP_TILES;i++) {
     bool hi=(di<rlen && rhi[di]==i);
-    char ch=hi?right_date[di++]:noise_char();
-    s_wrap_tiles[s_wrap_tile_count++]=(Tile){rslots[i].x,rslots[i].y,ch,hi,CHAR_H};
+    char ch2=hi?right_date[di++]:noise_char();
+    s_wrap_tiles[s_wrap_tile_count++]=(Tile){rslots[i].x,rslots[i].y,ch2,hi,tsz};
   }
 }
 
@@ -293,12 +308,13 @@ static void canvas_draw(Layer *layer, GContext *ctx) {
         GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
     }
   } else {
-    // wrap mode — full canvas tiles
+    // wrap mode — full canvas tiles, font from tile sz
     for (int i=0;i<s_wrap_tile_count;i++) {
       buf[0]=s_wrap_tiles[i].ch;
+      GFont wf = (s_wrap_tiles[i].sz <= 9) ? gothic09 : gothic14;
       graphics_context_set_text_color(ctx, s_wrap_tiles[i].hi?col_text():col_muted());
-      graphics_draw_text(ctx, buf, gothic09,
-        GRect(s_wrap_tiles[i].x, s_wrap_tiles[i].y, CHAR_W+2, CHAR_H+2),
+      graphics_draw_text(ctx, buf, wf,
+        GRect(s_wrap_tiles[i].x, s_wrap_tiles[i].y, s_wrap_tiles[i].sz+4, s_wrap_tiles[i].sz+4),
         GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
     }
   }
@@ -455,6 +471,7 @@ static void inbox_received(DictionaryIterator *iter, void *ctx) {
   t=dict_find(iter,KEY_DATE_STYLE);  if(t){s_date_style=  (int)t->value->int32;persist_write_int(KEY_DATE_STYLE, s_date_style);}
   t=dict_find(iter,KEY_LAYOUT_MODE); if(t){s_layout_mode= (int)t->value->int32;persist_write_int(KEY_LAYOUT_MODE,s_layout_mode);}
   t=dict_find(iter,KEY_PYR_POS);     if(t){s_pyr_pos=     (int)t->value->int32;persist_write_int(KEY_PYR_POS,    s_pyr_pos);}
+  t=dict_find(iter,KEY_WRAP_FONT);   if(t){s_wrap_font=   (int)t->value->int32;persist_write_int(KEY_WRAP_FONT,  s_wrap_font);}
   t=dict_find(iter,KEY_STAT_1);      if(t){s_stats[0]=    (int)t->value->int32;persist_write_int(KEY_STAT_1,     s_stats[0]);}
   t=dict_find(iter,KEY_STAT_2);      if(t){s_stats[1]=    (int)t->value->int32;persist_write_int(KEY_STAT_2,     s_stats[1]);}
   t=dict_find(iter,KEY_STAT_3);      if(t){s_stats[2]=    (int)t->value->int32;persist_write_int(KEY_STAT_3,     s_stats[2]);}
@@ -477,6 +494,7 @@ static void window_load(Window *window) {
   s_date_style  =persist_exists(KEY_DATE_STYLE)  ?persist_read_int(KEY_DATE_STYLE)  :0;
   s_layout_mode =persist_exists(KEY_LAYOUT_MODE) ?persist_read_int(KEY_LAYOUT_MODE) :0;
   s_pyr_pos     =persist_exists(KEY_PYR_POS)     ?persist_read_int(KEY_PYR_POS)     :1;
+  s_wrap_font   =persist_exists(KEY_WRAP_FONT)   ?persist_read_int(KEY_WRAP_FONT)   :0;
   s_stats[0]    =persist_exists(KEY_STAT_1)      ?persist_read_int(KEY_STAT_1)      :0;
   s_stats[1]   =persist_exists(KEY_STAT_2)     ?persist_read_int(KEY_STAT_2)     :1;
   s_stats[2]   =persist_exists(KEY_STAT_3)     ?persist_read_int(KEY_STAT_3)     :2;
