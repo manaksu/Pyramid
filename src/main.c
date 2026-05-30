@@ -224,39 +224,55 @@ static void build_wrap_tiles(uint32_t seed) {
   snprintf(right_date, sizeof(right_date), "%s",   s_wday_str);
   int llen=(int)strlen(left_date), rlen=(int)strlen(right_date);
 
-  // font size: small=GOTHIC_09 (~7px wide), large=GOTHIC_14 (~11px wide)
-  int cw = (s_wrap_font == 0) ? CHAR_W  : 11;  // char cell width
-  int ch = (s_wrap_font == 0) ? CHAR_H  : 11;  // char cell height
+  int cw  = (s_wrap_font == 0) ? CHAR_W : 11;
+  int ch  = (s_wrap_font == 0) ? CHAR_H : 11;
   uint8_t tsz = (uint8_t)(s_wrap_font == 0 ? 9 : 14);
 
   int rows = TIP_Y_FIXED / ch;
   int mid  = 144 / 2;
 
   typedef struct { int16_t x,y; } WSlot;
-  static WSlot lslots[150], rslots[150];
+  static WSlot lslots[180], rslots[180];
   int lsc=0, rsc=0;
 
-  int row_counts_w[4]={4,3,2,1};
-
   for (int row=0; row<rows; row++) {
-    int py = row*ch + ch/2;
-    bool in_band = (py > PYR_TOP && py < PYR_TOP+PYR_HW);
-    int plx=0, prx=144;
-    if (in_band) pyr_x_at_y_wrap(py, &plx, &prx);
-
-    // left side: flush RIGHT against pyramid (right-align to plx)
-    int left_cols  = plx / cw;
-    int left_start = plx - left_cols * cw;   // flush right
-
-    // right side: flush LEFT against pyramid (left-align from prx)
-    int right_avail = 144 - prx;
-    int right_cols  = right_avail / cw;
-    int right_start = prx;                    // flush left
-
     int cy = row * ch;
-    for (int col=0; col<left_cols && lsc<150; col++)
+
+    // Scan every pixel line in this char row to find most restrictive pyramid edge
+    int min_plx = 144;   // smallest left gap = rightmost left edge
+    int max_prx = 0;     // smallest right gap = leftmost right edge
+    bool in_band = false;
+
+    for (int scan_y = cy; scan_y < cy+ch; scan_y++) {
+      if (scan_y > PYR_TOP && scan_y < PYR_TOP+PYR_HW) {
+        int plx_s=0, prx_s=0;
+        pyr_x_at_y_wrap(scan_y, &plx_s, &prx_s);
+        if (plx_s < min_plx) min_plx = plx_s;
+        if (prx_s > max_prx) max_prx = prx_s;
+        in_band = true;
+      }
+    }
+
+    int left_start, left_cols, right_start, right_cols;
+
+    if (in_band) {
+      // flush chars right against left triangle edge
+      left_cols  = min_plx / cw;
+      left_start = min_plx - left_cols * cw;
+      // flush chars left against right triangle edge
+      right_start = max_prx;
+      right_cols  = (144 - right_start) / cw;
+    } else {
+      // full width
+      left_cols  = mid / cw;
+      left_start = 0;
+      right_start = mid;
+      right_cols  = (144 - mid) / cw;
+    }
+
+    for (int col=0; col<left_cols && lsc<180; col++)
       lslots[lsc++]=(WSlot){(int16_t)(left_start+col*cw),(int16_t)cy};
-    for (int col=0; col<right_cols && rsc<150; col++)
+    for (int col=0; col<right_cols && rsc<180; col++)
       rslots[rsc++]=(WSlot){(int16_t)(right_start+col*cw),(int16_t)cy};
   }
 
