@@ -16,7 +16,7 @@ function loadCfg() {
     dateStyle:   +(localStorage.getItem('pw_ds')    || '0'),
     layoutMode:  +(localStorage.getItem('pw_lm')    || '0'),
     pyrPos:      +(localStorage.getItem('pw_pp')    || '1'),
-    wrapFont:    +(localStorage.getItem('pw_wf')    || '1'),
+    wrapFont:    +(localStorage.getItem('pw_wf')    || '0'),
     stat1:       +(localStorage.getItem('pw_s1')    || '0'),
     stat2:       +(localStorage.getItem('pw_s2')    || '1'),
     stat3:       +(localStorage.getItem('pw_s3')    || '2'),

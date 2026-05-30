@@ -47,7 +47,7 @@ static int s_stat_style  = 0;
 static int s_date_style  = 0;  // 0=uniform  1=scaled
 static int s_layout_mode = 0;  // 0=standard 1=wrap
 static int s_pyr_pos     = 1;  // 0=left 1=center 2=right
-static int s_wrap_font   = 0;  // 0=small(GOTHIC_09) 1=large(GOTHIC_14, flush-aligned)
+static int s_wrap_font   = 1;  // 0=small(GOTHIC_09) 1=large(GOTHIC_14, flush-aligned)
 static int s_stats[4]    = {0,1,2,3};
 static int s_batt_pct   = 100;
 static int s_hour       = 0;
@@ -434,11 +434,9 @@ static void canvas_draw(Layer *layer, GContext *ctx) {
   int s_start = bottom_y + (61 - stats_total_h) / 2;
   for (int i=0;i<4;i++) {
     int sy = s_start + i*(STAT_LH+STAT_GAP);
-    // Draw label muted, value in text color — separately
     char lbl_str[24], val_str[24];
     snprintf(lbl_str, sizeof(lbl_str), "%s:", lbls[s_stats[i]]);
     snprintf(val_str, sizeof(val_str), "%s", sv[i]);
-    // measure label width to position value after it
     GSize lbl_sz = graphics_text_layout_get_content_size(
       lbl_str, stat_fnt, GRect(0,0,stats_w,STAT_LH+2),
       GTextOverflowModeWordWrap, GTextAlignmentLeft);
@@ -448,7 +446,7 @@ static void canvas_draw(Layer *layer, GContext *ctx) {
       GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
     graphics_context_set_text_color(ctx, col_text());
     graphics_draw_text(ctx, val_str, stat_fnt,
-      GRect(stats_x + lbl_sz.w, sy, stats_w - lbl_sz.w, STAT_LH+2),
+      GRect(stats_x+lbl_sz.w, sy, stats_w-lbl_sz.w, STAT_LH+2),
       GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
   }
 }
