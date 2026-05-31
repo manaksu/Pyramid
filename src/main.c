@@ -13,6 +13,7 @@
 #define KEY_PYR_POS      8  // 0=left 1=center 2=right
 #define KEY_WRAP_FONT    9  // 0=small(GOTHIC_09) 1=large(GOTHIC_18)
 #define KEY_STAT_CASE   10  // 0=normal 1=ALL CAPS
+#define KEY_CREAM_COLOR 11  // 0=dark brown 1=BulgarianRose maroon
 
 // ── Pyramid geometry (standard mode) ─────────────────────
 #define S        26
@@ -50,6 +51,7 @@ static int s_layout_mode = 0;  // 0=standard 1=wrap
 static int s_pyr_pos     = 1;  // 0=left 1=center 2=right
 static int s_wrap_font   = 0;  // 0=small(GOTHIC_09) 1=large(GOTHIC_18)
 static int s_stat_case   = 0;  // 0=normal 1=ALL CAPS
+static int s_cream_color = 0;  // 0=dark brown 1=BulgarianRose
 static int s_stats[4]    = {0,1,2,3};
 static int s_batt_pct   = 100;
 static int s_hour       = 0;
@@ -82,7 +84,12 @@ static void build_date_strings() {
 
 // ── Colors ────────────────────────────────────────────────
 static GColor col_bg()    { return s_bg_choice==1?GColorBlack:s_bg_choice==2?GColorWhite:GColorWhite; }
-static GColor col_text()  { return s_bg_choice==1?GColorWhite:GColorBlack; }
+static GColor col_text()  {
+  if (s_bg_choice==1) return GColorWhite;
+  if (s_bg_choice==2) return GColorBlack;
+  // cream — check color option
+  return s_cream_color==1 ? GColorBulgarianRose : GColorBlack;
+}
 static GColor col_muted() { return s_bg_choice==1?GColorDarkGray:GColorLightGray; }
 
 // ── Fill order ────────────────────────────────────────────
@@ -497,6 +504,7 @@ static void inbox_received(DictionaryIterator *iter, void *ctx) {
   t=dict_find(iter,KEY_PYR_POS);     if(t){s_pyr_pos=     (int)t->value->int32;persist_write_int(KEY_PYR_POS,    s_pyr_pos);}
   t=dict_find(iter,KEY_WRAP_FONT);   if(t){s_wrap_font=   (int)t->value->int32;persist_write_int(KEY_WRAP_FONT,  s_wrap_font);}
   t=dict_find(iter,KEY_STAT_CASE);   if(t){s_stat_case=   (int)t->value->int32;persist_write_int(KEY_STAT_CASE,  s_stat_case);}
+  t=dict_find(iter,KEY_CREAM_COLOR); if(t){s_cream_color= (int)t->value->int32;persist_write_int(KEY_CREAM_COLOR,s_cream_color);}
   t=dict_find(iter,KEY_STAT_1);      if(t){s_stats[0]=    (int)t->value->int32;persist_write_int(KEY_STAT_1,     s_stats[0]);}
   t=dict_find(iter,KEY_STAT_2);      if(t){s_stats[1]=    (int)t->value->int32;persist_write_int(KEY_STAT_2,     s_stats[1]);}
   t=dict_find(iter,KEY_STAT_3);      if(t){s_stats[2]=    (int)t->value->int32;persist_write_int(KEY_STAT_3,     s_stats[2]);}
@@ -521,6 +529,7 @@ static void window_load(Window *window) {
   s_pyr_pos     =persist_exists(KEY_PYR_POS)     ?persist_read_int(KEY_PYR_POS)     :1;
   s_wrap_font   =persist_exists(KEY_WRAP_FONT)   ?persist_read_int(KEY_WRAP_FONT)   :0;
   s_stat_case   =persist_exists(KEY_STAT_CASE)   ?persist_read_int(KEY_STAT_CASE)   :0;
+  s_cream_color =persist_exists(KEY_CREAM_COLOR) ?persist_read_int(KEY_CREAM_COLOR) :0;
   s_stats[0]    =persist_exists(KEY_STAT_1)      ?persist_read_int(KEY_STAT_1)      :0;
   s_stats[1]   =persist_exists(KEY_STAT_2)     ?persist_read_int(KEY_STAT_2)     :1;
   s_stats[2]   =persist_exists(KEY_STAT_3)     ?persist_read_int(KEY_STAT_3)     :2;

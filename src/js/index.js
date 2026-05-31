@@ -18,6 +18,7 @@ function loadCfg() {
     pyrPos:      +(localStorage.getItem('pw_pp')    || '1'),
     wrapFont:    +(localStorage.getItem('pw_wf')    || '0'),
     statCase:    +(localStorage.getItem('pw_sc')    || '0'),
+    creamColor:  +(localStorage.getItem('pw_cc')    || '0'),
     stat1:       +(localStorage.getItem('pw_s1')    || '0'),
     stat2:       +(localStorage.getItem('pw_s2')    || '2'),
     stat3:       +(localStorage.getItem('pw_s3')    || '3'),
@@ -33,6 +34,7 @@ function saveCfg(c) {
   localStorage.setItem('pw_pp', c.pyrPos);
   localStorage.setItem('pw_wf', c.wrapFont);
   localStorage.setItem('pw_sc', c.statCase);
+  localStorage.setItem('pw_cc', c.creamColor);
   localStorage.setItem('pw_s1', c.stat1);
   localStorage.setItem('pw_s2', c.stat2);
   localStorage.setItem('pw_s3', c.stat3);
@@ -43,7 +45,7 @@ function sendMsg(c) {
   Pebble.sendAppMessage(
     { '0': c.bg, '1': c.statStyle, '2': c.stat1, '3': c.stat2,
       '4': c.stat3, '5': c.stat4, '6': c.dateStyle,
-      '7': c.layoutMode, '8': c.pyrPos, '9': c.wrapFont, '10': c.statCase },
+      '7': c.layoutMode, '8': c.pyrPos, '9': c.wrapFont, '10': c.statCase, '11': c.creamColor },
     function() { console.log('PyramidWatch: sent ok'); },
     function(e) { console.log('PyramidWatch: failed', JSON.stringify(e)); }
   );
@@ -90,6 +92,9 @@ function buildConfig(c) {
     + '<label class="opt"><input type="radio" name="bg" value="1"'+(c.bg===1?' checked':'')+'><div class="swatch black"></div><span>ePaper Black</span></label>'
     + '<label class="opt"><input type="radio" name="bg" value="2"'+(c.bg===2?' checked':'')+'><div class="swatch white"></div><span>ePaper White</span></label>'
 
+    + '<h3>Cream ink color <span style="font-size:10px;color:#8a7060">(cream bg only)</span></h3>'
+    + radio('creamColor', ['Dark Brown (default)', 'Maroon'], c.creamColor)
+
     + '<h3>Layout mode</h3>'
     + radio('layoutMode', ['Standard — full-width pyramid', 'Wrap — smaller pyramid, text flows around'], c.layoutMode)
 
@@ -120,7 +125,7 @@ function buildConfig(c) {
     + 'function gs(n){var e=document.querySelector("select[name="+n+"]");return e?+e.value:0;}'
     + 'document.getElementById("s").onclick=function(){'
     +   'location.href="pebblejs://close#"+encodeURIComponent(JSON.stringify({'
-    +   'bg:g("bg"),statStyle:g("statStyle"),dateStyle:g("dateStyle"),'
+    +   'bg:g("bg"),statStyle:g("statStyle"),dateStyle:g("dateStyle"),creamColor:g("creamColor"),'
     +   'layoutMode:g("layoutMode"),pyrPos:g("pyrPos"),wrapFont:g("wrapFont"),statCase:g("statCase"),'
     +   'stat1:gs("stat1"),stat2:gs("stat2"),stat3:gs("stat3"),stat4:gs("stat4")}));'
     + '};<\/script></body></html>';
