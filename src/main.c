@@ -11,7 +11,7 @@
 #define KEY_DATE_STYLE   6  // 0=uniform  1=scaled
 #define KEY_LAYOUT_MODE  7  // 0=standard 1=wrap
 #define KEY_PYR_POS      8  // 0=left 1=center 2=right
-#define KEY_WRAP_FONT    9  // 0=small(sz≈9) 1=large(sz≈11)
+#define KEY_WRAP_FONT    9  // 0=small(GOTHIC_09) 1=large(GOTHIC_18)
 
 // ── Pyramid geometry (standard mode) ─────────────────────
 #define S        26
@@ -47,17 +47,16 @@ static int s_stat_style  = 0;
 static int s_date_style  = 0;  // 0=uniform  1=scaled
 static int s_layout_mode = 0;  // 0=standard 1=wrap
 static int s_pyr_pos     = 1;  // 0=left 1=center 2=right
-static int s_wrap_font   = 1;  // 0=small(GOTHIC_09) 1=large(GOTHIC_14, flush-aligned)
+static int s_wrap_font   = 1;  // 0=small(GOTHIC_09) 1=large(GOTHIC_18, flush-aligned)
 static int s_stats[4]    = {0,1,2,3};
 static int s_batt_pct   = 100;
 static int s_hour       = 0;
 static int s_minute     = 0;
-static int s_steps      = 0;
-static int s_hr         = 0;
-static int s_sleep_hr   = 0;
-static int s_sleep_min  = 0;
-static int s_calories   = 0;
-static int s_dist_m     = 0;
+static int s_steps       = 0;
+static int s_sleep_hr    = 0;
+static int s_sleep_min   = 0;
+static int s_calories    = 0;
+static int s_dist_m      = 0;
 
 // ── PRNG ──────────────────────────────────────────────────
 static uint32_t s_prng = 0;
@@ -79,9 +78,12 @@ static void build_date_strings() {
 }
 
 // ── Colors ────────────────────────────────────────────────
-static GColor col_bg()    { return s_bg_choice==1?GColorBlack:s_bg_choice==2?GColorWhite:GColorWhite; }
-static GColor col_text()  { return s_bg_choice==1?GColorWhite:GColorBlack; }
-static GColor col_muted() { return s_bg_choice==1?GColorDarkGray:GColorLightGray; }
+static GColor col_bg()          { return s_bg_choice==1?GColorBlack:s_bg_choice==2?GColorWhite:GColorWhite; }
+static GColor col_text()        { return s_bg_choice==1?GColorWhite:GColorBlack; }
+static GColor col_muted()       { return s_bg_choice==1?GColorDarkGray:GColorLightGray; }
+static GColor col_stat_label()  { return s_bg_choice==1?GColorLightGray:GColorDarkGray; }  // darker than noise
+static GColor col_tri_fill()    { return col_text(); }
+static GColor col_tri_empty()   { return col_muted(); }
 
 // ── Fill order ────────────────────────────────────────────
 static const int FILL_ORDER[10] = {9,7,8,4,5,6,0,1,2,3};
@@ -209,8 +211,12 @@ static void build_tiles(uint32_t seed) {
   }
 }
 
-// ── Wrap mode tile builder ────────────────────────────────
+// ── Layout constants ──────────────────────────────────────
 #define TIP_Y_FIXED  107
+#define TIME_LH      27
+#define STAT_LH      10
+#define STAT_GAP      2
+#define TIME_W       36
 #define MAX_WRAP_TILES 300
 static Tile s_wrap_tiles[MAX_WRAP_TILES];
 static int  s_wrap_tile_count = 0;
@@ -224,9 +230,9 @@ static void build_wrap_tiles(uint32_t seed) {
   snprintf(right_date, sizeof(right_date), "%s",   s_wday_str);
   int llen=(int)strlen(left_date), rlen=(int)strlen(right_date);
 
-  int cw  = (s_wrap_font == 0) ? CHAR_W : 11;
-  int ch  = (s_wrap_font == 0) ? CHAR_H : 11;
-  uint8_t tsz = (uint8_t)(s_wrap_font == 0 ? 9 : 14);
+  int cw  = (s_wrap_font == 0) ? CHAR_W : 15;
+  int ch  = (s_wrap_font == 0) ? CHAR_H : 13;
+  uint8_t tsz = (uint8_t)(s_wrap_font == 0 ? 9 : 18);
 
   int rows = TIP_Y_FIXED / ch;
   int mid  = 144 / 2;
@@ -302,7 +308,6 @@ static void canvas_draw(Layer *layer, GContext *ctx) {
   graphics_context_set_fill_color(ctx, col_bg());
   graphics_fill_rect(ctx, bounds, 0, GCornerNone);
 
-  GFont small_fnt = fonts_get_system_font(FONT_KEY_GOTHIC_09);
   GFont stat_fnt  = s_stat_font ? s_stat_font : fonts_get_system_font(FONT_KEY_GOTHIC_14);
   GFont time_fnt  = s_time_font ? s_time_font : fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD);
 
@@ -327,7 +332,7 @@ static void canvas_draw(Layer *layer, GContext *ctx) {
     // wrap mode — full canvas tiles, font from tile sz
     for (int i=0;i<s_wrap_tile_count;i++) {
       buf[0]=s_wrap_tiles[i].ch;
-      GFont wf = (s_wrap_tiles[i].sz <= 9) ? gothic09 : gothic14;
+      GFont wf = (s_wrap_tiles[i].sz <= 9) ? gothic09 : (s_wrap_tiles[i].sz <= 14) ? gothic14 : gothic18;
       graphics_context_set_text_color(ctx, s_wrap_tiles[i].hi?col_text():col_muted());
       graphics_draw_text(ctx, buf, wf,
         GRect(s_wrap_tiles[i].x, s_wrap_tiles[i].y, s_wrap_tiles[i].sz+4, s_wrap_tiles[i].sz+4),
@@ -335,25 +340,23 @@ static void canvas_draw(Layer *layer, GContext *ctx) {
     }
   }
 
-  // ── Pyramid ────────────────────────────────────────────
-  int filled=(s_batt_pct+9)/10;
-  int ti=0;
+  int filled=(s_batt_pct+9)/10, ti=0;
+  GPoint tri_pts[3];
 
   if (s_layout_mode == 0) {
-    // standard pyramid
-    int rc[4]={4,3,2,1};
-    int y=PYR_OY;
+    int rc[4]={4,3,2,1}, y=PYR_OY;
     for (int r=0;r<4;r++) {
-      int count=rc[r];
-      int rw=count*S+(count-1)*HGAP;
-      int rx=PYR_OX+(PYR_W-rw)/2;
-      for (int i=0;i<count;i++) {
+      int rw=rc[r]*S+(rc[r]-1)*HGAP, rx=PYR_OX+(PYR_W-rw)/2;
+      for (int i=0;i<rc[r];i++) {
         int cx=rx+i*(S+HGAP)+S/2;
         bool is_f=false;
         for (int f=0;f<filled;f++) if(FILL_ORDER[f]==ti){is_f=true;break;}
-        GPathInfo info={.num_points=3,.points=(GPoint[]){{cx-S/2,y},{cx+S/2,y},{cx,y+TRI_H}}};
+        tri_pts[0]=(GPoint){cx-S/2,y};
+        tri_pts[1]=(GPoint){cx+S/2,y};
+        tri_pts[2]=(GPoint){cx,y+TRI_H};
+        GPathInfo info={.num_points=3,.points=tri_pts};
         GPath *path=gpath_create(&info);
-        graphics_context_set_fill_color(ctx,is_f?col_text():col_muted());
+        graphics_context_set_fill_color(ctx, is_f?col_tri_fill():col_tri_empty());
         gpath_draw_filled(ctx,path);
         graphics_context_set_stroke_color(ctx,col_text());
         graphics_context_set_stroke_width(ctx,1);
@@ -364,21 +367,19 @@ static void canvas_draw(Layer *layer, GContext *ctx) {
       y+=TRI_H+VGAP;
     }
   } else {
-    // wrap mode pyramid
-    int ox=wrap_ox();
-    int rc[4]={4,3,2,1};
-    int y=PYR_TOP;
+    int ox=wrap_ox(), rc[4]={4,3,2,1}, y=PYR_TOP;
     for (int r=0;r<4;r++) {
-      int count=rc[r];
-      int rw=count*SW+(count-1)*HGAPW;
-      int rx=ox+(PYR_WW-rw)/2;
-      for (int i=0;i<count;i++) {
+      int rw=rc[r]*SW+(rc[r]-1)*HGAPW, rx=ox+(PYR_WW-rw)/2;
+      for (int i=0;i<rc[r];i++) {
         int cx=rx+i*(SW+HGAPW)+SW/2;
         bool is_f=false;
         for (int f=0;f<filled;f++) if(FILL_ORDER[f]==ti){is_f=true;break;}
-        GPathInfo info={.num_points=3,.points=(GPoint[]){{cx-SW/2,y},{cx+SW/2,y},{cx,y+TRI_HW}}};
+        tri_pts[0]=(GPoint){cx-SW/2,y};
+        tri_pts[1]=(GPoint){cx+SW/2,y};
+        tri_pts[2]=(GPoint){cx,y+TRI_HW};
+        GPathInfo info={.num_points=3,.points=tri_pts};
         GPath *path=gpath_create(&info);
-        graphics_context_set_fill_color(ctx,is_f?col_text():col_muted());
+        graphics_context_set_fill_color(ctx, is_f?col_tri_fill():col_tri_empty());
         gpath_draw_filled(ctx,path);
         graphics_context_set_stroke_color(ctx,col_text());
         graphics_context_set_stroke_width(ctx,1);
@@ -390,16 +391,7 @@ static void canvas_draw(Layer *layer, GContext *ctx) {
     }
   }
 
-  // ── Time HH / MM ───────────────────────────────────────
-  // TIP_Y=107  BOT_H=61px
-  // sz=28: actual line_h=27px, 2 lines=54px fits ✓
-  // sz=10 stats: lh=9px, 4 lines + 3x2px gaps = 42px fits ✓
-  #define TIME_LH 27
-  #define STAT_LH 10   // line height at sz=10
-  #define STAT_GAP 2   // px gap between stat lines
-  #define TIME_W  36   // width of "00" at sz=28
-
-  int bottom_y = TIP_Y_FIXED;   // always 107, both modes
+  int bottom_y = TIP_Y_FIXED;
   char hh[3],mm[3];
   snprintf(hh,3,"%02d",s_hour);
   snprintf(mm,3,"%02d",s_minute);
@@ -411,20 +403,19 @@ static void canvas_draw(Layer *layer, GContext *ctx) {
   int stats_x = 4+TIME_W+6;
   int stats_w = 144-stats_x-2;
 
-  // ── Stats — 4 lines, full labels ──────────────────────
-  // Full labels: Steps / Heart Rate / Sleep / Calories / Distance
-  const char *sl[]={"STP","HR","SL","CAL","DST"};
-  const char *fl[]={"Steps","Heart Rate","Sleep","Calories","Distance"};
+  // ── Stats — 4 Basalt stats (no heart rate sensor) ─────
+  // 0=Steps  1=Sleep  2=Calories  3=Distance
+  const char *sl[]={"STP","SL","CAL","DST"};
+  const char *fl[]={"Steps","Sleep","Calories","Distance"};
   const char **lbls=(s_stat_style==0)?sl:fl;
 
   char sv[4][24];
   for (int i=0;i<4;i++) {
     switch(s_stats[i]) {
       case 0: snprintf(sv[i],24,"%d",s_steps); break;
-      case 1: snprintf(sv[i],24,"%d BPM",s_hr); break;
-      case 2: snprintf(sv[i],24,"%dh%02dm",s_sleep_hr,s_sleep_min); break;
-      case 3: snprintf(sv[i],24,"%d",s_calories); break;
-      case 4: snprintf(sv[i],24,"%d.%dkm",s_dist_m/1000,(s_dist_m%1000)/100); break;
+      case 1: snprintf(sv[i],24,"%dh%02dm",s_sleep_hr,s_sleep_min); break;
+      case 2: snprintf(sv[i],24,"%d",s_calories); break;
+      case 3: snprintf(sv[i],24,"%d.%dkm",s_dist_m/1000,(s_dist_m%1000)/100); break;
       default: snprintf(sv[i],24,"--"); break;
     }
   }
@@ -440,7 +431,7 @@ static void canvas_draw(Layer *layer, GContext *ctx) {
     GSize lbl_sz = graphics_text_layout_get_content_size(
       lbl_str, stat_fnt, GRect(0,0,stats_w,STAT_LH+2),
       GTextOverflowModeWordWrap, GTextAlignmentLeft);
-    graphics_context_set_text_color(ctx, col_muted());
+    graphics_context_set_text_color(ctx, col_stat_label());
     graphics_draw_text(ctx, lbl_str, stat_fnt,
       GRect(stats_x, sy, stats_w, STAT_LH+2),
       GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
@@ -458,8 +449,6 @@ static void update_health() {
   HealthServiceAccessibilityMask m;
   m=health_service_metric_accessible(HealthMetricStepCount,start,now);
   if(m&HealthServiceAccessibilityMaskAvailable) s_steps=(int)health_service_sum(HealthMetricStepCount,start,now);
-  m=health_service_metric_accessible(HealthMetricHeartRateBPM,start,now);
-  if(m&HealthServiceAccessibilityMaskAvailable) s_hr=(int)health_service_sum_averaged(HealthMetricHeartRateBPM,start,now,HealthServiceTimeScopeOnce);
   m=health_service_metric_accessible(HealthMetricSleepSeconds,start,now);
   if(m&HealthServiceAccessibilityMaskAvailable){int s=(int)health_service_sum(HealthMetricSleepSeconds,start,now);s_sleep_hr=s/3600;s_sleep_min=(s%3600)/60;}
   m=health_service_metric_accessible(HealthMetricActiveKCalories,start,now);
@@ -521,10 +510,10 @@ static void window_load(Window *window) {
   s_layout_mode =persist_exists(KEY_LAYOUT_MODE) ?persist_read_int(KEY_LAYOUT_MODE) :0;
   s_pyr_pos     =persist_exists(KEY_PYR_POS)     ?persist_read_int(KEY_PYR_POS)     :1;
   s_wrap_font   =persist_exists(KEY_WRAP_FONT)   ?persist_read_int(KEY_WRAP_FONT)   :1;
-  s_stats[0]    =persist_exists(KEY_STAT_1)      ?persist_read_int(KEY_STAT_1)      :0;
-  s_stats[1]   =persist_exists(KEY_STAT_2)     ?persist_read_int(KEY_STAT_2)     :1;
-  s_stats[2]   =persist_exists(KEY_STAT_3)     ?persist_read_int(KEY_STAT_3)     :2;
-  s_stats[3]   =persist_exists(KEY_STAT_4)     ?persist_read_int(KEY_STAT_4)     :3;
+  s_stats[0]    =persist_exists(KEY_STAT_1)      ?persist_read_int(KEY_STAT_1)      :0;  // Steps
+  s_stats[1]    =persist_exists(KEY_STAT_2)      ?persist_read_int(KEY_STAT_2)      :1;  // Sleep
+  s_stats[2]    =persist_exists(KEY_STAT_3)      ?persist_read_int(KEY_STAT_3)      :2;  // Calories
+  s_stats[3]    =persist_exists(KEY_STAT_4)      ?persist_read_int(KEY_STAT_4)      :3;  // Distance
 
   s_canvas=layer_create(bounds);
   layer_set_update_proc(s_canvas,canvas_draw);
