@@ -47,7 +47,7 @@ function sendMsg(c) {
   );
 }
 
-var STAT_OPTS = ['Steps','Sleep','Calories','Distance'];
+var STAT_OPTS = ['Steps','Heart Rate','Sleep','Calories','Distance'];
 
 function buildConfig(c) {
   function radio(name, opts, sel) {
@@ -100,7 +100,7 @@ function buildConfig(c) {
     + radio('dateStyle', ['Uniform — same size throughout', 'Scaled — larger toward bottom'], c.dateStyle)
 
     + '<h3>Stat label style</h3>'
-    + radio('statStyle', ['Short — STP / SL / CAL / DST', 'Full — Steps / Sleep / Calories / Distance'], c.statStyle)
+    + radio('statStyle', ['Short — STP / HR / SL / CAL', 'Full — Steps / Heart Rate / Sleep / Calories'], c.statStyle)
 
     + '<h3>Health stats</h3>'
     + '<div class="row"><label>Stat 1</label>'+select('stat1', STAT_OPTS, c.stat1)+'</div>'
