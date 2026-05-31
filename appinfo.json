@@ -1,9 +1,9 @@
 {
-  "uuid": "8c556bd9-9f93-468d-a160-573a060c8572",
+  "uuid": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
   "shortName": "PyramidWatch",
   "longName": "PyramidWatch",
   "companyName": "Manaksu",
-  "versionLabel": "1.75",
+  "versionLabel": "1.0",
   "sdkVersion": "3",
   "targetPlatforms": ["basalt"],
   "watchapp": { "watchface": true },
@@ -18,7 +18,8 @@
     "DATE_STYLE":   6,
     "LAYOUT_MODE":  7,
     "PYR_POS":      8,
-    "WRAP_FONT":    9
+    "WRAP_FONT":    9,
+    "STAT_CASE":   10
   },
   "resources": {
     "media": [

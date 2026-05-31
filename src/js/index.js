@@ -3,7 +3,7 @@
  * AppMessage keys:
  *   0 = BG_CHOICE   : 0=Cream  1=Black  2=White
  *   1 = STAT_STYLE  : 0=Short  1=Full
- *   2 = STAT_1      : 0=Steps 1=HR 2=Sleep 3=Calories 4=Distance
+ *   2 = STAT_1      : 0=Steps 2=Sleep 3=Calories 4=Distance (HR removed)
  *   3 = STAT_2
  *   4 = STAT_3
  *   5 = STAT_4
@@ -17,10 +17,11 @@ function loadCfg() {
     layoutMode:  +(localStorage.getItem('pw_lm')    || '0'),
     pyrPos:      +(localStorage.getItem('pw_pp')    || '1'),
     wrapFont:    +(localStorage.getItem('pw_wf')    || '0'),
+    statCase:    +(localStorage.getItem('pw_sc')    || '0'),
     stat1:       +(localStorage.getItem('pw_s1')    || '0'),
-    stat2:       +(localStorage.getItem('pw_s2')    || '1'),
-    stat3:       +(localStorage.getItem('pw_s3')    || '2'),
-    stat4:       +(localStorage.getItem('pw_s4')    || '3')
+    stat2:       +(localStorage.getItem('pw_s2')    || '2'),
+    stat3:       +(localStorage.getItem('pw_s3')    || '3'),
+    stat4:       +(localStorage.getItem('pw_s4')    || '4')
   };
 }
 
@@ -31,6 +32,7 @@ function saveCfg(c) {
   localStorage.setItem('pw_lm', c.layoutMode);
   localStorage.setItem('pw_pp', c.pyrPos);
   localStorage.setItem('pw_wf', c.wrapFont);
+  localStorage.setItem('pw_sc', c.statCase);
   localStorage.setItem('pw_s1', c.stat1);
   localStorage.setItem('pw_s2', c.stat2);
   localStorage.setItem('pw_s3', c.stat3);
@@ -41,13 +43,14 @@ function sendMsg(c) {
   Pebble.sendAppMessage(
     { '0': c.bg, '1': c.statStyle, '2': c.stat1, '3': c.stat2,
       '4': c.stat3, '5': c.stat4, '6': c.dateStyle,
-      '7': c.layoutMode, '8': c.pyrPos, '9': c.wrapFont },
+      '7': c.layoutMode, '8': c.pyrPos, '9': c.wrapFont, '10': c.statCase },
     function() { console.log('PyramidWatch: sent ok'); },
     function(e) { console.log('PyramidWatch: failed', JSON.stringify(e)); }
   );
 }
 
-var STAT_OPTS = ['Steps','Heart Rate','Sleep','Calories','Distance'];
+// Stat options with explicit C index values (HR index 1 removed)
+var STAT_VALS = [0, 2, 3, 4];  // C indices: Steps=0, Sleep=2, Calories=3, Distance=4
 
 function buildConfig(c) {
   function radio(name, opts, sel) {
@@ -56,9 +59,9 @@ function buildConfig(c) {
              '<span>'+l+'</span></label>';
     }).join('');
   }
-  function select(name, opts, sel) {
+  function select(name, opts, vals, sel) {
     return '<select name="'+name+'" class="sel">'+
-      opts.map(function(l,i){ return '<option value="'+i+'"'+(i===sel?' selected':'')+'>'+l+'</option>'; }).join('')+
+      opts.map(function(l,i){ return '<option value="'+vals[i]+'"'+(vals[i]===sel?' selected':'')+'>'+l+'</option>'; }).join('')+
       '</select>';
   }
 
@@ -100,13 +103,16 @@ function buildConfig(c) {
     + radio('dateStyle', ['Uniform — same size throughout', 'Scaled — larger toward bottom'], c.dateStyle)
 
     + '<h3>Stat label style</h3>'
-    + radio('statStyle', ['Short — STP / HR / SL / CAL', 'Full — Steps / Heart Rate / Sleep / Calories'], c.statStyle)
+    + radio('statStyle', ['Short — STP / SL / CAL / DST', 'Full — Steps / Sleep / Calories / Distance'], c.statStyle)
+
+    + '<h3>Stat text case</h3>'
+    + radio('statCase', ['Normal — Steps: 7,898', 'ALL CAPS — STEPS: 7,898'], c.statCase)
 
     + '<h3>Health stats</h3>'
-    + '<div class="row"><label>Stat 1</label>'+select('stat1', STAT_OPTS, c.stat1)+'</div>'
-    + '<div class="row"><label>Stat 2</label>'+select('stat2', STAT_OPTS, c.stat2)+'</div>'
-    + '<div class="row"><label>Stat 3</label>'+select('stat3', STAT_OPTS, c.stat3)+'</div>'
-    + '<div class="row"><label>Stat 4</label>'+select('stat4', STAT_OPTS, c.stat4)+'</div>'
+    + '<div class="row"><label>Stat 1</label>'+select('stat1', ['Steps','Sleep','Calories','Distance'], STAT_VALS, c.stat1)+'</div>'
+    + '<div class="row"><label>Stat 2</label>'+select('stat2', ['Steps','Sleep','Calories','Distance'], STAT_VALS, c.stat2)+'</div>'
+    + '<div class="row"><label>Stat 3</label>'+select('stat3', ['Steps','Sleep','Calories','Distance'], STAT_VALS, c.stat3)+'</div>'
+    + '<div class="row"><label>Stat 4</label>'+select('stat4', ['Steps','Sleep','Calories','Distance'], STAT_VALS, c.stat4)+'</div>'
 
     + '<button id="s">Save</button>'
     + '<script>'
@@ -115,7 +121,7 @@ function buildConfig(c) {
     + 'document.getElementById("s").onclick=function(){'
     +   'location.href="pebblejs://close#"+encodeURIComponent(JSON.stringify({'
     +   'bg:g("bg"),statStyle:g("statStyle"),dateStyle:g("dateStyle"),'
-    +   'layoutMode:g("layoutMode"),pyrPos:g("pyrPos"),wrapFont:g("wrapFont"),'
+    +   'layoutMode:g("layoutMode"),pyrPos:g("pyrPos"),wrapFont:g("wrapFont"),statCase:g("statCase"),'
     +   'stat1:gs("stat1"),stat2:gs("stat2"),stat3:gs("stat3"),stat4:gs("stat4")}));'
     + '};<\/script></body></html>';
 

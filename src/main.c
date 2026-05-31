@@ -11,7 +11,8 @@
 #define KEY_DATE_STYLE   6  // 0=uniform  1=scaled
 #define KEY_LAYOUT_MODE  7  // 0=standard 1=wrap
 #define KEY_PYR_POS      8  // 0=left 1=center 2=right
-#define KEY_WRAP_FONT    9  // 0=small(sz≈9) 1=large(sz≈11)
+#define KEY_WRAP_FONT    9  // 0=small(GOTHIC_09) 1=large(GOTHIC_18)
+#define KEY_STAT_CASE   10  // 0=normal 1=ALL CAPS
 
 // ── Pyramid geometry (standard mode) ─────────────────────
 #define S        26
@@ -47,7 +48,8 @@ static int s_stat_style  = 0;
 static int s_date_style  = 0;  // 0=uniform  1=scaled
 static int s_layout_mode = 0;  // 0=standard 1=wrap
 static int s_pyr_pos     = 1;  // 0=left 1=center 2=right
-static int s_wrap_font   = 0;  // 0=small(GOTHIC_09) 1=large(GOTHIC_14, flush-aligned)
+static int s_wrap_font   = 0;  // 0=small(GOTHIC_09) 1=large(GOTHIC_18)
+static int s_stat_case   = 0;  // 0=normal 1=ALL CAPS
 static int s_stats[4]    = {0,1,2,3};
 static int s_batt_pct   = 100;
 static int s_hour       = 0;
@@ -224,9 +226,9 @@ static void build_wrap_tiles(uint32_t seed) {
   snprintf(right_date, sizeof(right_date), "%s",   s_wday_str);
   int llen=(int)strlen(left_date), rlen=(int)strlen(right_date);
 
-  int cw  = (s_wrap_font == 0) ? CHAR_W : 11;
-  int ch  = (s_wrap_font == 0) ? CHAR_H : 11;
-  uint8_t tsz = (uint8_t)(s_wrap_font == 0 ? 9 : 14);
+  int cw  = (s_wrap_font == 0) ? CHAR_W : 15;
+  int ch  = (s_wrap_font == 0) ? CHAR_H : 13;
+  uint8_t tsz = (uint8_t)(s_wrap_font == 0 ? 9 : 18);
 
   int rows = TIP_Y_FIXED / ch;
   int mid  = 144 / 2;
@@ -327,7 +329,7 @@ static void canvas_draw(Layer *layer, GContext *ctx) {
     // wrap mode — full canvas tiles, font from tile sz
     for (int i=0;i<s_wrap_tile_count;i++) {
       buf[0]=s_wrap_tiles[i].ch;
-      GFont wf = (s_wrap_tiles[i].sz <= 9) ? gothic09 : gothic14;
+      GFont wf = (s_wrap_tiles[i].sz <= 9) ? gothic09 : (s_wrap_tiles[i].sz <= 14) ? gothic14 : gothic18;
       graphics_context_set_text_color(ctx, s_wrap_tiles[i].hi?col_text():col_muted());
       graphics_draw_text(ctx, buf, wf,
         GRect(s_wrap_tiles[i].x, s_wrap_tiles[i].y, s_wrap_tiles[i].sz+4, s_wrap_tiles[i].sz+4),
@@ -411,31 +413,39 @@ static void canvas_draw(Layer *layer, GContext *ctx) {
   int stats_x = 4+TIME_W+6;
   int stats_w = 144-stats_x-2;
 
-  // ── Stats — 4 lines, full labels ──────────────────────
-  // Full labels: Steps / Heart Rate / Sleep / Calories / Distance
-  const char *sl[]={"STP","HR","SL","CAL","DST"};
-  const char *fl[]={"Steps","Heart Rate","Sleep","Calories","Distance"};
+  // ── Stats — 4 lines ───────────────────────────────────
+  // 0=Steps  1=n/a(HR removed)  2=Sleep  3=Calories  4=Distance
+  const char *sl[]={"STP","--","SL","CAL","DST"};
+  const char *fl[]={"Steps","--","Sleep","Calories","Distance"};
   const char **lbls=(s_stat_style==0)?sl:fl;
 
   char sv[4][24];
   for (int i=0;i<4;i++) {
     switch(s_stats[i]) {
       case 0: snprintf(sv[i],24,"%d",s_steps); break;
-      case 1: snprintf(sv[i],24,"%d BPM",s_hr); break;
       case 2: snprintf(sv[i],24,"%dh%02dm",s_sleep_hr,s_sleep_min); break;
       case 3: snprintf(sv[i],24,"%d",s_calories); break;
       case 4: snprintf(sv[i],24,"%d.%dkm",s_dist_m/1000,(s_dist_m%1000)/100); break;
       default: snprintf(sv[i],24,"--"); break;
     }
+    // ALL CAPS option
+    if (s_stat_case == 1) {
+      for (char *p=sv[i]; *p; p++) *p = toupper((unsigned char)*p);
+    }
   }
 
   // vertically center 4 lines + 3 gaps in BOT_H (61px)
-  int stats_total_h = STAT_LH*4 + STAT_GAP*3;  // 40+6 = 46px
+  int stats_total_h = STAT_LH*4 + STAT_GAP*3;
   int s_start = bottom_y + (61 - stats_total_h) / 2;
   for (int i=0;i<4;i++) {
     int sy = s_start + i*(STAT_LH+STAT_GAP);
+    char lbl_buf[24];
+    snprintf(lbl_buf, sizeof(lbl_buf), "%s:", lbls[s_stats[i]]);
+    if (s_stat_case == 1) {
+      for (char *p=lbl_buf; *p; p++) *p = toupper((unsigned char)*p);
+    }
     char line[40];
-    snprintf(line,sizeof(line),"%s:%s",lbls[s_stats[i]],sv[i]);
+    snprintf(line,sizeof(line),"%s%s",lbl_buf,sv[i]);
     graphics_context_set_text_color(ctx,col_text());
     graphics_draw_text(ctx,line,stat_fnt,GRect(stats_x,sy,stats_w,STAT_LH+2),GTextOverflowModeWordWrap,GTextAlignmentLeft,NULL);
   }
@@ -448,8 +458,6 @@ static void update_health() {
   HealthServiceAccessibilityMask m;
   m=health_service_metric_accessible(HealthMetricStepCount,start,now);
   if(m&HealthServiceAccessibilityMaskAvailable) s_steps=(int)health_service_sum(HealthMetricStepCount,start,now);
-  m=health_service_metric_accessible(HealthMetricHeartRateBPM,start,now);
-  if(m&HealthServiceAccessibilityMaskAvailable) s_hr=(int)health_service_sum_averaged(HealthMetricHeartRateBPM,start,now,HealthServiceTimeScopeOnce);
   m=health_service_metric_accessible(HealthMetricSleepSeconds,start,now);
   if(m&HealthServiceAccessibilityMaskAvailable){int s=(int)health_service_sum(HealthMetricSleepSeconds,start,now);s_sleep_hr=s/3600;s_sleep_min=(s%3600)/60;}
   m=health_service_metric_accessible(HealthMetricActiveKCalories,start,now);
@@ -488,6 +496,7 @@ static void inbox_received(DictionaryIterator *iter, void *ctx) {
   t=dict_find(iter,KEY_LAYOUT_MODE); if(t){s_layout_mode= (int)t->value->int32;persist_write_int(KEY_LAYOUT_MODE,s_layout_mode);}
   t=dict_find(iter,KEY_PYR_POS);     if(t){s_pyr_pos=     (int)t->value->int32;persist_write_int(KEY_PYR_POS,    s_pyr_pos);}
   t=dict_find(iter,KEY_WRAP_FONT);   if(t){s_wrap_font=   (int)t->value->int32;persist_write_int(KEY_WRAP_FONT,  s_wrap_font);}
+  t=dict_find(iter,KEY_STAT_CASE);   if(t){s_stat_case=   (int)t->value->int32;persist_write_int(KEY_STAT_CASE,  s_stat_case);}
   t=dict_find(iter,KEY_STAT_1);      if(t){s_stats[0]=    (int)t->value->int32;persist_write_int(KEY_STAT_1,     s_stats[0]);}
   t=dict_find(iter,KEY_STAT_2);      if(t){s_stats[1]=    (int)t->value->int32;persist_write_int(KEY_STAT_2,     s_stats[1]);}
   t=dict_find(iter,KEY_STAT_3);      if(t){s_stats[2]=    (int)t->value->int32;persist_write_int(KEY_STAT_3,     s_stats[2]);}
@@ -511,6 +520,7 @@ static void window_load(Window *window) {
   s_layout_mode =persist_exists(KEY_LAYOUT_MODE) ?persist_read_int(KEY_LAYOUT_MODE) :0;
   s_pyr_pos     =persist_exists(KEY_PYR_POS)     ?persist_read_int(KEY_PYR_POS)     :1;
   s_wrap_font   =persist_exists(KEY_WRAP_FONT)   ?persist_read_int(KEY_WRAP_FONT)   :0;
+  s_stat_case   =persist_exists(KEY_STAT_CASE)   ?persist_read_int(KEY_STAT_CASE)   :0;
   s_stats[0]    =persist_exists(KEY_STAT_1)      ?persist_read_int(KEY_STAT_1)      :0;
   s_stats[1]   =persist_exists(KEY_STAT_2)     ?persist_read_int(KEY_STAT_2)     :1;
   s_stats[2]   =persist_exists(KEY_STAT_3)     ?persist_read_int(KEY_STAT_3)     :2;
